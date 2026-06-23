@@ -1,0 +1,1 @@
+﻿Build was configured to prefer settings repositories over project repositories but repository 'maven' was added by initialization script 'C:\Users\26092\.gradle\init.d\mirror.init.gradle'
