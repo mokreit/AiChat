@@ -2,8 +2,11 @@ package com.aichat
 
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import com.aichat.design.AppTheme
 
 @Composable
 fun App() {
-    Text("AiChat KMP")
+    AppTheme {
+        Text("AiChat KMP")
+    }
 }
