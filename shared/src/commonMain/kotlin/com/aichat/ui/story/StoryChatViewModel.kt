@@ -157,18 +157,20 @@ class StoryChatViewModel(
                 sb.add(userParts.joinToString("\n"))
             }
 
-            // Output format instructions (matching original)
+            // Output format instructions - strict character-only dialogue
             sb.add(
                 """
 输出格式要求：
-- 每个角色发言用 【角色名】对话内容 的格式
+- 严格使用 【角色名】对话内容 的格式输出每个角色的发言
+- 每条发言必须以 【角色名】 开头，不要输出任何旁白、叙述、场景描述
+- 不要输出括号动作描述，把动作融入对话内容中
 - 根据剧情自然发展，决定哪些角色需要说话，哪些角色保持沉默
 - 不要每次都让所有角色发言，只在剧情需要时让相关角色说话
 - 有时一个角色回复就够了，有时多个角色互动更合适，由剧情决定
 - 当用户对某个角色说话时，其他角色可以根据场景自然地插话或做出反应，但不是必须的
-- 动作或场景描述用 *动作描述* 包裹
-- 你是故事的导演，负责推动剧情自然发展
-- 用户的角色是 $userNick，不要代替用户说话""".trimIndent()
+- 每个角色只说和自己相关的话，只表达自己的观点和行动
+- 用户的角色是 $userNick，绝对不要代替用户说话
+- 不要输出任何不带 【角色名】 标记的文字""".trimIndent()
             )
 
             _uiState.value = _uiState.value.copy(
@@ -272,20 +274,8 @@ class StoryChatViewModel(
                 for (msg in msgs) {
                     chatSessionRepository.insertMessage(msg)
                 }
-            } else {
-                // Fallback: no 【】 format found, save as single narrator message
-                // Try first character as default sender
-                val firstName = _uiState.value.characters.firstOrNull()?.name ?: "旁白"
-                val msg = MessageEntity(
-                    id = generateId(),
-                    sessionId = resolvedSessionId,
-                    role = "assistant",
-                    content = content,
-                    senderName = firstName,
-                    timestamp = System.currentTimeMillis(),
-                )
-                chatSessionRepository.insertMessage(msg)
             }
+            // If no 【】 format found, discard - we strictly only show character dialogue
         }
     }
 
