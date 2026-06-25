@@ -255,6 +255,19 @@ class ChatViewModel(
     fun clearChat() {
         viewModelScope.launch {
             chatSessionRepository.deleteMessagesBySession(resolvedSessionId)
+            // Re-insert the character's first message
+            val char = characterRepository.getCharacterById(characterId)
+            if (char != null && char.firstMessage.isNotBlank()) {
+                val firstMsg = MessageEntity(
+                    id = generateId(),
+                    sessionId = resolvedSessionId,
+                    role = "assistant",
+                    content = char.firstMessage,
+                    senderName = char.name,
+                    timestamp = System.currentTimeMillis(),
+                )
+                chatSessionRepository.insertMessage(firstMsg)
+            }
         }
     }
 
