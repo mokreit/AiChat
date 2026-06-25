@@ -10,3 +10,10 @@ local.properties
 *.iml
 .DS_Store
 Thumbs.db
+.vscode/
+.writerHelper/
+
+# Signing keystore (keep private)
+androidApp/keystore/
+*.jks
+*.keystore

@@ -22,4 +22,5 @@ rootProject.name = "AiChatKMP"
 include(":shared")
 include(":androidApp")
 include(":desktopApp")
-include(":webApp")
+// WasmJs 暂不支持 Room/DataStore，后续版本启用
+// include(":webApp")
