@@ -155,7 +155,6 @@ fun ChatScreen(
 
     LaunchedEffect(uiState.messages.size, uiState.streamingContent) {
         val totalItems = uiState.messages.size +
-            (if (uiState.characterFirstMessage.isNotBlank() && uiState.messages.isEmpty()) 1 else 0) +
             (if (uiState.isStreaming && uiState.streamingContent.isNotBlank()) 1 else 0)
         if (totalItems > 0) {
             listState.animateScrollToItem(totalItems - 1)
@@ -337,23 +336,6 @@ fun ChatScreen(
                 verticalArrangement = Arrangement.spacedBy(4.dp),
                 contentPadding = PaddingValues(vertical = 8.dp),
             ) {
-                // Character first message (when no messages yet)
-                if (uiState.characterFirstMessage.isNotBlank() && uiState.messages.isEmpty()) {
-                    item(key = "__first_message__") {
-                        ChatBubble(
-                            text = uiState.characterFirstMessage,
-                            isUser = false,
-                            avatarName = uiState.characterName,
-                            avatarUri = characterAvatarUri,
-                            userAvatarUri = userAvatarUri ?: "",
-                            modifier = Modifier.combinedClickable(
-                                onClick = {},
-                                onLongClick = { selectedMessage = MessageUi(id = "__first_message__", role = "assistant", content = uiState.characterFirstMessage) },
-                            ),
-                        )
-                    }
-                }
-
                 items(uiState.messages, key = { it.id }) { message ->
                     ChatBubble(
                         text = message.content,

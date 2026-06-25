@@ -143,8 +143,9 @@ class ChatViewModel(
                 chatSessionRepository.insertSession(session)
             }
 
-            // For new sessions, insert the character's first message into DB
-            if (isNewSession) {
+            // Insert character's first message if this session has no messages yet
+            val existingMessages = chatSessionRepository.getMessagesBySession(resolvedSessionId).firstOrNull()
+            if (existingMessages.isNullOrEmpty()) {
                 val char = characterRepository.getCharacterById(characterId)
                 if (char != null && char.firstMessage.isNotBlank()) {
                     val firstMsg = MessageEntity(
