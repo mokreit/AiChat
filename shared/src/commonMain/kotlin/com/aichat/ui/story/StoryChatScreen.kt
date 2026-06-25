@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -165,10 +166,10 @@ fun StoryChatScreen(
 
                     // Streaming: show segments in real-time (each character gets own bubble)
                     if (uiState.isStreaming && uiState.streamingSegments.isNotEmpty()) {
-                        items(
+                        itemsIndexed(
                             items = uiState.streamingSegments,
-                            key = { "streaming-${it.senderName}-${it.content.take(20)}" },
-                        ) { segment ->
+                            key = { index, segment -> "streaming-$index-${segment.senderName}" },
+                        ) { _, segment ->
                             val avatarUri = viewModel.getAvatarForSender(segment.senderName)
                             ChatBubble(
                                 text = segment.content,

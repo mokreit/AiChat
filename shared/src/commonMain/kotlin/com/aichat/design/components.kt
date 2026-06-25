@@ -29,6 +29,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -49,14 +50,18 @@ fun CharacterAvatar(
     avatarUri: String = "",
     modifier: Modifier = Modifier,
 ) {
-    var bitmap by remember(avatarUri) { mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null) }
-
-    if (avatarUri.isNotBlank()) {
-        androidx.compose.runtime.LaunchedEffect(avatarUri) {
-            try {
-                bitmap = com.aichat.platform.loadImageFromFile(avatarUri)
-            } catch (_: Exception) {}
+    val bitmap = if (avatarUri.isNotBlank()) {
+        val cachedBitmap = remember(avatarUri) { mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null) }
+        LaunchedEffect(avatarUri) {
+            if (cachedBitmap.value == null) {
+                try {
+                    cachedBitmap.value = com.aichat.platform.loadImageFromFile(avatarUri)
+                } catch (_: Exception) {}
+            }
         }
+        cachedBitmap.value
+    } else {
+        null
     }
 
     Box(
@@ -67,7 +72,7 @@ fun CharacterAvatar(
     ) {
         if (bitmap != null) {
             androidx.compose.foundation.Image(
-                bitmap = bitmap!!,
+                bitmap = bitmap,
                 contentDescription = null,
                 modifier = Modifier.matchParentSize().clip(CircleShape),
                 contentScale = androidx.compose.ui.layout.ContentScale.Crop,
