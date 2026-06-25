@@ -139,8 +139,6 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Config section
-            SectionHeader("配置")
             SettingItem(
                 title = s.modelConfig,
                 subtitle = s.configureModel,
@@ -158,8 +156,6 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Other section
-            SectionHeader("其他")
             SettingItem(
                 title = s.about,
                 subtitle = "v1.0.0",

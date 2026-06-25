@@ -33,7 +33,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextOverflow
+
 import androidx.compose.ui.unit.dp
 import com.aichat.data.character.CharacterRepository
 import com.aichat.data.database.entity.CharacterEntity
@@ -143,15 +143,6 @@ private fun CharacterCard(
                     style = AiChatTypography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
-                if (character.description.isNotBlank()) {
-                    Text(
-                        text = character.description,
-                        style = AiChatTypography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
             }
         }
     }

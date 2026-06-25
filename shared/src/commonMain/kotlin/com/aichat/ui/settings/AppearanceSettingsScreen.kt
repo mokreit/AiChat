@@ -48,11 +48,8 @@ fun AppearanceSettingsScreen(
     val scope = rememberCoroutineScope()
     val isDarkTheme by settingsRepository.darkTheme.collectAsState(initial = true)
     val themeMode by settingsRepository.themeMode.collectAsState(initial = "system")
-    val nickname by settingsRepository.nickname.collectAsState(initial = "")
-    val avatarUri by settingsRepository.avatar.collectAsState(initial = "")
 
     var showThemeDialog by remember { mutableStateOf(false) }
-    var showNicknameDialog by remember { mutableStateOf(false) }
 
     if (showThemeDialog) {
         ThemeModeDialog(
@@ -70,17 +67,6 @@ fun AppearanceSettingsScreen(
                     )
                 }
                 showThemeDialog = false
-            },
-        )
-    }
-
-    if (showNicknameDialog) {
-        NicknameDialog(
-            currentNickname = nickname ?: "",
-            onDismiss = { showNicknameDialog = false },
-            onSave = { name ->
-                scope.launch { settingsRepository.setNickname(name) }
-                showNicknameDialog = false
             },
         )
     }
@@ -122,58 +108,8 @@ fun AppearanceSettingsScreen(
                     )
                 },
             )
-            SettingItem(
-                title = s.nickname,
-                subtitle = nickname?.ifBlank { null } ?: s.notConfigured,
-                onClick = { showNicknameDialog = true },
-            )
-            SettingItem(
-                title = s.avatar,
-                subtitle = avatarUri?.ifBlank { null } ?: s.notConfigured,
-                onClick = {
-                    scope.launch {
-                        try {
-                            val picker = com.aichat.platform.FilePicker()
-                            val uri = picker.pickImage()
-                            if (uri != null) {
-                                settingsRepository.setAvatar(uri)
-                            }
-                        } catch (_: Exception) { }
-                    }
-                },
-            )
         }
     }
-}
-
-@Composable
-private fun NicknameDialog(
-    currentNickname: String,
-    onDismiss: () -> Unit,
-    onSave: (String) -> Unit,
-) {
-    val s = strings()
-    var name by remember { mutableStateOf(currentNickname) }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(s.nickname) },
-        text = {
-            OutlinedTextField(
-                value = name,
-                onValueChange = { name = it },
-                label = { Text(s.nickname) },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-            )
-        },
-        confirmButton = {
-            TextButton(onClick = { onSave(name) }) { Text(s.save) }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text(s.cancel) }
-        },
-    )
 }
 
 @Composable

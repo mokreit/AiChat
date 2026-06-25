@@ -141,8 +141,7 @@ class StoryChatViewModel(
             // Character descriptions in 【角色名】 format
             for (char in characterEntities) {
                 val parts = mutableListOf("【${char.name}】")
-                if (char.description.isNotBlank()) parts.add("描述：${char.description}")
-                parts.add("性格与行为：${char.systemPrompt.ifBlank { char.personality }}")
+                if (char.systemPrompt.isNotBlank()) parts.add("性格与行为：${char.systemPrompt}")
                 sb.add(parts.joinToString("\n"))
             }
 

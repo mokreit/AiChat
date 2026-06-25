@@ -9,11 +9,13 @@ import com.aichat.data.database.dao.ChatSessionDao
 import com.aichat.data.database.dao.MessageDao
 import com.aichat.data.database.dao.ModelConfigDao
 import com.aichat.data.database.dao.StoryDao
+import com.aichat.data.database.dao.VoiceConfigDao
 import com.aichat.data.database.entity.CharacterEntity
 import com.aichat.data.database.entity.ChatSessionEntity
 import com.aichat.data.database.entity.MessageEntity
 import com.aichat.data.database.entity.ModelConfigEntity
 import com.aichat.data.database.entity.StoryEntity
+import com.aichat.data.database.entity.VoiceConfigEntity
 
 @Database(
     entities = [
@@ -22,8 +24,9 @@ import com.aichat.data.database.entity.StoryEntity
         MessageEntity::class,
         StoryEntity::class,
         ModelConfigEntity::class,
+        VoiceConfigEntity::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = true,
 )
 @ConstructedBy(AppDatabaseConstructor::class)
@@ -33,6 +36,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun messageDao(): MessageDao
     abstract fun storyDao(): StoryDao
     abstract fun modelConfigDao(): ModelConfigDao
+    abstract fun voiceConfigDao(): VoiceConfigDao
 }
 
 @Suppress("KotlinNoActualForExpect")

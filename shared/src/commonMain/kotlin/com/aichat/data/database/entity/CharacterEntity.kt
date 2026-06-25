@@ -27,6 +27,7 @@ data class CharacterEntity(
     @ColumnInfo(defaultValue = "") val userAvatar: String = "",
     @ColumnInfo(defaultValue = "") val userDescription: String = "",
     @ColumnInfo(defaultValue = "") val modelConfigId: String = "",
+    @ColumnInfo(defaultValue = "") val voiceConfigId: String = "",
     val createdAt: Long,
     val updatedAt: Long,
 )

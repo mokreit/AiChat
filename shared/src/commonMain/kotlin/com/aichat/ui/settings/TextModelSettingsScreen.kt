@@ -3,6 +3,7 @@ package com.aichat.ui.settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -10,14 +11,23 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -28,7 +38,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -37,19 +46,18 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
-import com.aichat.data.ai.AiRepository
-import com.aichat.data.api.ApiResult
 import com.aichat.data.database.entity.ModelConfigEntity
 import com.aichat.data.model.ModelConfigRepository
-import com.aichat.data.settings.SettingsRepository
+import com.aichat.data.ai.AiRepository
+import com.aichat.data.api.ApiResult
 import com.aichat.design.AiChatTypography
-import com.aichat.design.SettingItem
 import com.aichat.design.strings
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
-import kotlinx.coroutines.flow.first
 
 data class TextProvider(
     val id: String,
@@ -74,71 +82,30 @@ val TEXT_PROVIDERS = listOf(
 @Composable
 fun TextModelSettingsScreen(
     onBack: () -> Unit,
-    settingsRepository: SettingsRepository = koinInject(),
     modelConfigRepository: ModelConfigRepository = koinInject(),
     aiRepository: AiRepository = koinInject(),
 ) {
     val s = strings()
     val scope = rememberCoroutineScope()
-    val apiHost by settingsRepository.apiHost.collectAsState(initial = "")
-    val apiKey by settingsRepository.apiKey.collectAsState(initial = "")
+    val configs by modelConfigRepository.getAllConfigs().collectAsState(initial = emptyList())
+    var showAddDialog by remember { mutableStateOf(false) }
+    var editingConfig by remember { mutableStateOf<ModelConfigEntity?>(null) }
 
-    var formApiEndpoint by remember { mutableStateOf("") }
-    var formApiKey by remember { mutableStateOf("") }
-    var formModel by remember { mutableStateOf("") }
-    var availableModels by remember { mutableStateOf<List<String>?>(null) }
-    var isFetchingModels by remember { mutableStateOf(false) }
-    var fetchError by remember { mutableStateOf(false) }
-    var fetchErrorMessage by remember { mutableStateOf("") }
-    var showModelPicker by remember { mutableStateOf(false) }
-    var showProviderPicker by remember { mutableStateOf(false) }
-    var currentProviderId by remember { mutableStateOf("openai") }
-
-    // Sync form fields when saved settings are loaded
-    LaunchedEffect(Unit) {
-        // Load from Room ModelConfig first (has all fields)
-        val config = modelConfigRepository.getDefaultConfig()
-        if (config != null) {
-            formApiEndpoint = config.baseUrl
-            formApiKey = config.apiKey
-            formModel = config.modelName
-            currentProviderId = config.provider
-        } else {
-            // Fallback to DataStore
-            val host = settingsRepository.apiHost.first()
-            val key = settingsRepository.apiKey.first()
-            if (!host.isNullOrBlank()) formApiEndpoint = host
-            if (!key.isNullOrBlank()) formApiKey = key
-        }
-    }
-
-    // Detect current provider from apiHost
-    val currentProvider = TEXT_PROVIDERS.find { it.endpoint.isNotBlank() && it.endpoint == formApiEndpoint }
-        ?: TEXT_PROVIDERS.find { it.id == "custom-text" }!!
-
-    if (showProviderPicker) {
-        ProviderPickerDialog(
-            providers = TEXT_PROVIDERS,
-            currentProviderId = currentProvider.id,
-            onDismiss = { showProviderPicker = false },
-            onSelect = { provider ->
-                currentProviderId = provider.id
-                if (provider.endpoint.isNotBlank()) {
-                    formApiEndpoint = provider.endpoint
+    if (showAddDialog || editingConfig != null) {
+        TextModelEditDialog(
+            existing = editingConfig,
+            aiRepository = aiRepository,
+            onDismiss = { showAddDialog = false; editingConfig = null },
+            onSave = { config ->
+                scope.launch {
+                    if (editingConfig != null) {
+                        modelConfigRepository.updateConfig(config)
+                    } else {
+                        modelConfigRepository.insertConfig(config)
+                    }
                 }
-                showProviderPicker = false
-            },
-        )
-    }
-
-    if (showModelPicker && availableModels != null) {
-        ModelPickerDialog(
-            models = availableModels!!,
-            currentModel = formModel,
-            onDismiss = { showModelPicker = false },
-            onSelect = { model ->
-                formModel = model
-                showModelPicker = false
+                showAddDialog = false
+                editingConfig = null
             },
         )
     }
@@ -154,49 +121,199 @@ fun TextModelSettingsScreen(
                 },
             )
         },
+        floatingActionButton = {
+            FloatingActionButton(onClick = { showAddDialog = true }) {
+                Icon(Icons.Default.Add, contentDescription = s.addModel)
+            }
+        },
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .verticalScroll(rememberScrollState()),
-        ) {
-            // Provider section
-            SectionHeader(s.provider)
-            SettingItem(
-                title = currentProvider.name,
-                subtitle = if (currentProvider.endpoint.isNotBlank()) currentProvider.endpoint else s.customApi,
-                onClick = { showProviderPicker = true },
-            )
+        if (configs.isEmpty()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+            ) {
+                Text(s.noModelConfig, style = AiChatTypography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(modifier = Modifier.height(8.dp))
+                Button(onClick = { showAddDialog = true }) {
+                    Text(s.addModel)
+                }
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                items(configs, key = { it.id }) { config ->
+                    ModelConfigCard(
+                        config = config,
+                        onClick = { editingConfig = config },
+                        onDelete = {
+                            scope.launch { modelConfigRepository.deleteConfig(config.id) }
+                        },
+                    )
+                }
+            }
+        }
+    }
+}
 
-            // API config section
-            SectionHeader(s.configure)
-            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+@Composable
+private fun ModelConfigCard(
+    config: ModelConfigEntity,
+    onClick: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    val s = strings()
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(Color(config.provider.hashCode() or 0xFF000000.toInt()).copy(alpha = 0.2f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = config.name.take(1).uppercase(),
+                    style = AiChatTypography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = config.name.ifBlank { config.modelName },
+                    style = AiChatTypography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Text(
+                    text = config.modelName.ifBlank { config.baseUrl },
+                    style = AiChatTypography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            IconButton(onClick = onDelete) {
+                Icon(
+                    Icons.Default.Delete,
+                    contentDescription = s.delete,
+                    tint = MaterialTheme.colorScheme.error,
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TextModelEditDialog(
+    existing: ModelConfigEntity?,
+    aiRepository: AiRepository,
+    onDismiss: () -> Unit,
+    onSave: (ModelConfigEntity) -> Unit,
+) {
+    val s = strings()
+    val scope = rememberCoroutineScope()
+    var name by remember { mutableStateOf(existing?.name ?: "") }
+    var provider by remember { mutableStateOf(existing?.provider ?: "openai") }
+    var baseUrl by remember { mutableStateOf(existing?.baseUrl ?: "https://api.openai.com/v1") }
+    var apiKey by remember { mutableStateOf(existing?.apiKey ?: "") }
+    var modelName by remember { mutableStateOf(existing?.modelName ?: "") }
+    var isFetchingModels by remember { mutableStateOf(false) }
+    var fetchError by remember { mutableStateOf("") }
+    var availableModels by remember { mutableStateOf<List<String>?>(null) }
+    var showModelPicker by remember { mutableStateOf(false) }
+    var showProviderPicker by remember { mutableStateOf(false) }
+
+    if (showProviderPicker) {
+        ProviderPickerDialog(
+            providers = TEXT_PROVIDERS,
+            currentProviderId = provider,
+            onDismiss = { showProviderPicker = false },
+            onSelect = { p ->
+                provider = p.id
+                if (p.endpoint.isNotBlank()) baseUrl = p.endpoint
+                showProviderPicker = false
+            },
+        )
+    }
+
+    if (showModelPicker && availableModels != null) {
+        ModelPickerDialog(
+            models = availableModels!!,
+            currentModel = modelName,
+            onDismiss = { showModelPicker = false },
+            onSelect = { m -> modelName = m; showModelPicker = false },
+        )
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (existing != null) s.editModel else s.addModel) },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
                 OutlinedTextField(
-                    value = formApiEndpoint,
-                    onValueChange = { formApiEndpoint = it },
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text(s.name) },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                )
+                // Provider selector
+                val currentProvider = TEXT_PROVIDERS.find { it.id == provider } ?: TEXT_PROVIDERS.first()
+                OutlinedTextField(
+                    value = currentProvider.name,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text(s.provider) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { showProviderPicker = true },
+                    enabled = false,
+                )
+                OutlinedTextField(
+                    value = baseUrl,
+                    onValueChange = { baseUrl = it },
                     label = { Text(s.apiHost) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                 )
-                Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
-                    value = formApiKey,
-                    onValueChange = { formApiKey = it },
+                    value = apiKey,
+                    onValueChange = { apiKey = it },
                     label = { Text(s.apiKey) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     visualTransformation = PasswordVisualTransformation(),
                 )
-                Spacer(modifier = Modifier.height(8.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     OutlinedTextField(
-                        value = formModel,
-                        onValueChange = { formModel = it },
+                        value = modelName,
+                        onValueChange = { modelName = it },
                         label = { Text(s.modelName) },
                         modifier = Modifier.weight(1f),
                         singleLine = true,
@@ -204,14 +321,13 @@ fun TextModelSettingsScreen(
                     OutlinedButton(
                         onClick = {
                             isFetchingModels = true
-                            fetchError = false
-                            fetchErrorMessage = ""
+                            fetchError = ""
                             scope.launch {
                                 try {
                                     val result = aiRepository.discoverModels(
-                                        apiHost = formApiEndpoint,
-                                        apiKey = formApiKey,
-                                        providerId = currentProviderId,
+                                        apiHost = baseUrl,
+                                        apiKey = apiKey,
+                                        providerId = provider,
                                     )
                                     when (result) {
                                         is ApiResult.Success -> {
@@ -219,117 +335,52 @@ fun TextModelSettingsScreen(
                                             if (result.value.models.isNotEmpty()) {
                                                 showModelPicker = true
                                             } else {
-                                                fetchError = true
-                                                fetchErrorMessage = "No models returned from server"
+                                                fetchError = "No models returned"
                                             }
                                         }
-                                        is ApiResult.HttpError -> {
-                                            fetchError = true
-                                            fetchErrorMessage = "HTTP ${result.statusCode}: ${result.message}"
-                                        }
-                                        is ApiResult.NetworkError -> {
-                                            fetchError = true
-                                            fetchErrorMessage = "Network error: ${result.message}"
-                                        }
-                                        is ApiResult.UnexpectedError -> {
-                                            fetchError = true
-                                            fetchErrorMessage = result.message ?: "Unknown error"
-                                        }
+                                        is ApiResult.HttpError -> fetchError = "HTTP ${result.statusCode}"
+                                        is ApiResult.NetworkError -> fetchError = "Network error"
+                                        is ApiResult.UnexpectedError -> fetchError = result.message ?: "Error"
                                     }
                                 } catch (e: Exception) {
-                                    fetchError = true
-                                    fetchErrorMessage = e.message ?: "Connection failed"
+                                    fetchError = e.message ?: "Connection failed"
                                 }
                                 isFetchingModels = false
                             }
                         },
-                        enabled = formApiEndpoint.isNotBlank() && !isFetchingModels,
+                        enabled = baseUrl.isNotBlank() && !isFetchingModels,
                     ) {
                         Text(if (isFetchingModels) s.fetchingModels else s.fetchModels)
                     }
                 }
-                if (fetchError) {
-                    Text(
-                        text = fetchErrorMessage.ifBlank { s.fetchModelsFailed },
-                        color = MaterialTheme.colorScheme.error,
-                        style = AiChatTypography.bodySmall,
-                        modifier = Modifier.padding(top = 4.dp),
+                if (fetchError.isNotBlank()) {
+                    Text(fetchError, color = MaterialTheme.colorScheme.error, style = AiChatTypography.bodySmall)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    val id = existing?.id ?: java.util.UUID.randomUUID().toString()
+                    onSave(
+                        ModelConfigEntity(
+                            id = id,
+                            provider = provider,
+                            name = name.ifBlank { provider },
+                            baseUrl = baseUrl,
+                            apiKey = apiKey,
+                            modelName = modelName,
+                            enabled = true,
+                        )
                     )
-                }
-            }
-
-            // Action buttons
-            Spacer(modifier = Modifier.height(16.dp))
-            Row(
-                modifier = Modifier.padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Button(
-                    onClick = {
-                        scope.launch {
-                            settingsRepository.setApiHost(formApiEndpoint)
-                            settingsRepository.setApiKey(formApiKey)
-                            // Save or update ModelConfigEntity so ChatViewModel can find it
-                            val existing = modelConfigRepository.getDefaultConfig()
-                            val id = existing?.id ?: "default"
-                            val config = ModelConfigEntity(
-                                id = id,
-                                provider = currentProviderId,
-                                name = currentProvider.name,
-                                baseUrl = formApiEndpoint,
-                                apiKey = formApiKey,
-                                modelName = formModel,
-                                enabled = true,
-                            )
-                            if (existing != null) {
-                                modelConfigRepository.updateConfig(config)
-                            } else {
-                                modelConfigRepository.insertConfig(config)
-                            }
-                            settingsRepository.setDefaultModelConfigId(id)
-                        }
-                    },
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Text(s.save)
-                }
-                OutlinedButton(
-                    onClick = {
-                        formApiEndpoint = ""
-                        formApiKey = ""
-                        formModel = ""
-                        scope.launch {
-                            settingsRepository.setApiHost("")
-                            settingsRepository.setApiKey("")
-                            // Remove default config
-                            val existing = modelConfigRepository.getDefaultConfig()
-                            if (existing != null) {
-                                modelConfigRepository.deleteConfig(existing.id)
-                            }
-                        }
-                    },
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Text(s.clear)
-                }
-            }
-
-            // Model list if available
-            if (availableModels != null && availableModels!!.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(16.dp))
-                SectionHeader(s.selectModel)
-                availableModels!!.forEach { model ->
-                    SettingItem(
-                        title = model,
-                        onClick = {
-                            formModel = model
-                            scope.launch { settingsRepository.setApiHost(formApiEndpoint) }
-                        },
-                    )
-                }
-            }
-        }
-    }
+                },
+                enabled = baseUrl.isNotBlank() && apiKey.isNotBlank() && modelName.isNotBlank(),
+            ) { Text(s.save) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(s.cancel) }
+        },
+    )
 }
 
 @Composable
@@ -340,8 +391,6 @@ private fun ProviderPickerDialog(
     onSelect: (TextProvider) -> Unit,
 ) {
     val s = strings()
-    val scrollState = rememberScrollState()
-
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(s.provider) },
@@ -350,7 +399,7 @@ private fun ProviderPickerDialog(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(400.dp)
-                    .verticalScroll(scrollState),
+                    .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 providers.forEach { provider ->
@@ -359,10 +408,7 @@ private fun ProviderPickerDialog(
                             .fillMaxWidth()
                             .then(
                                 if (provider.id == currentProviderId) {
-                                    Modifier.background(
-                                        MaterialTheme.colorScheme.primaryContainer,
-                                        MaterialTheme.shapes.small,
-                                    )
+                                    Modifier.background(MaterialTheme.colorScheme.primaryContainer, MaterialTheme.shapes.small)
                                 } else {
                                     Modifier
                                 }
@@ -375,33 +421,19 @@ private fun ProviderPickerDialog(
                             Text(
                                 text = provider.name,
                                 style = AiChatTypography.bodyLarge,
-                                color = if (provider.id == currentProviderId) {
-                                    MaterialTheme.colorScheme.primary
-                                } else {
-                                    MaterialTheme.colorScheme.onSurface
-                                },
+                                color = if (provider.id == currentProviderId) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                             )
                             if (provider.endpoint.isNotBlank()) {
-                                Text(
-                                    text = provider.endpoint,
-                                    style = AiChatTypography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
+                                Text(text = provider.endpoint, style = AiChatTypography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             } else {
-                                Text(
-                                    text = s.customApi,
-                                    style = AiChatTypography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
+                                Text(text = s.customApi, style = AiChatTypography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     }
                 }
             }
         },
-        confirmButton = {
-            TextButton(onClick = onDismiss) { Text(s.cancel) }
-        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(s.cancel) } },
     )
 }
 
@@ -413,8 +445,6 @@ private fun ModelPickerDialog(
     onSelect: (String) -> Unit,
 ) {
     val s = strings()
-    val scrollState = rememberScrollState()
-
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(s.selectModel) },
@@ -423,7 +453,7 @@ private fun ModelPickerDialog(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(400.dp)
-                    .verticalScroll(scrollState),
+                    .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 models.forEach { model ->
@@ -432,10 +462,7 @@ private fun ModelPickerDialog(
                             .fillMaxWidth()
                             .then(
                                 if (model == currentModel) {
-                                    Modifier.background(
-                                        MaterialTheme.colorScheme.primaryContainer,
-                                        MaterialTheme.shapes.small,
-                                    )
+                                    Modifier.background(MaterialTheme.colorScheme.primaryContainer, MaterialTheme.shapes.small)
                                 } else {
                                     Modifier
                                 }
@@ -447,28 +474,12 @@ private fun ModelPickerDialog(
                         Text(
                             text = model,
                             style = AiChatTypography.bodyMedium,
-                            color = if (model == currentModel) {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                MaterialTheme.colorScheme.onSurface
-                            },
+                            color = if (model == currentModel) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                         )
                     }
                 }
             }
         },
-        confirmButton = {
-            TextButton(onClick = onDismiss) { Text(s.cancel) }
-        },
-    )
-}
-
-@Composable
-private fun SectionHeader(title: String) {
-    Text(
-        text = title,
-        style = AiChatTypography.titleMedium,
-        color = MaterialTheme.colorScheme.onSurface,
-        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+        confirmButton = { TextButton(onClick = onDismiss) { Text(s.cancel) } },
     )
 }

@@ -65,7 +65,6 @@ fun ModelSettingsScreen(
                 .padding(padding)
                 .verticalScroll(rememberScrollState()),
         ) {
-            SectionHeader(s.provider)
             SettingItem(
                 title = s.textModel,
                 subtitle = "${apiHost?.take(30)?.ifBlank { s.notConfigured } ?: s.notConfigured}",

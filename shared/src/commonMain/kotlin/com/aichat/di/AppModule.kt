@@ -24,6 +24,7 @@ import com.aichat.data.voice.AudioPlayer
 import com.aichat.data.voice.EdgeTtsProvider
 import com.aichat.data.voice.OpenAiCompatTtsProvider
 import com.aichat.data.voice.TtsProviderRegistry
+import com.aichat.data.voice.VoiceConfigRepository
 import com.aichat.data.voice.VoiceRepository
 import com.aichat.data.voice.createPlatformAudioPlayer
 import io.ktor.client.HttpClient
@@ -40,12 +41,14 @@ val appModule: Module = module {
     single { get<AppDatabase>().messageDao() }
     single { get<AppDatabase>().storyDao() }
     single { get<AppDatabase>().modelConfigDao() }
+    single { get<AppDatabase>().voiceConfigDao() }
 
     // Repositories
     single { CharacterRepository(get()) }
     single { ChatSessionRepository(get(), get()) }
     single { StoryRepository(get()) }
     single { ModelConfigRepository(get()) }
+    single { VoiceConfigRepository(get()) }
     single { SettingsRepository(createDataStore()) }
 
     // AI Engine

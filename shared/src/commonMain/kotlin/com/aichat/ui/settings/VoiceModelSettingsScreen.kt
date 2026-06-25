@@ -3,6 +3,7 @@ package com.aichat.ui.settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -10,20 +11,28 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -36,13 +45,13 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
-import com.aichat.data.settings.SettingsRepository
-import com.aichat.data.voice.TtsProvider
-import com.aichat.data.voice.TtsProviderRegistry
+import com.aichat.data.database.entity.VoiceConfigEntity
+import com.aichat.data.voice.VoiceConfigRepository
 import com.aichat.design.AiChatTypography
-import com.aichat.design.SettingItem
 import com.aichat.design.strings
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
@@ -66,51 +75,28 @@ val VOICE_PROVIDERS = listOf(
 @Composable
 fun VoiceModelSettingsScreen(
     onBack: () -> Unit,
-    settingsRepository: SettingsRepository = koinInject(),
-    ttsProviderRegistry: TtsProviderRegistry = koinInject(),
+    voiceConfigRepository: VoiceConfigRepository = koinInject(),
 ) {
     val s = strings()
     val scope = rememberCoroutineScope()
-    val defaultTtsProviderId by settingsRepository.defaultTtsProviderId.collectAsState(initial = "")
-    val autoPlayVoice by settingsRepository.autoPlayVoice.collectAsState(initial = true)
-    val savedApiHost by settingsRepository.voiceApiHost.collectAsState(initial = "")
-    val savedApiKey by settingsRepository.voiceApiKey.collectAsState(initial = "")
-    val savedModel by settingsRepository.voiceModel.collectAsState(initial = "")
+    val configs by voiceConfigRepository.getAllConfigs().collectAsState(initial = emptyList())
+    var showAddDialog by remember { mutableStateOf(false) }
+    var editingConfig by remember { mutableStateOf<VoiceConfigEntity?>(null) }
 
-    var showTtsProviderDialog by remember { mutableStateOf(false) }
-
-    // Resolve display name from registry
-    val registeredProvider = ttsProviderRegistry.find(defaultTtsProviderId ?: "")
-    val providerDisplayName = registeredProvider?.displayName
-        ?: defaultTtsProviderId?.ifBlank { null }
-        ?: "OpenAI TTS"
-
-    // Detect current voice provider info for endpoint defaults
-    val currentProviderInfo = VOICE_PROVIDERS.find { it.id == (defaultTtsProviderId ?: "") }
-        ?: VOICE_PROVIDERS.first()
-
-    // Form state (initialized from saved values or defaults from provider)
-    var formApiHost by remember(savedApiHost, defaultTtsProviderId) {
-        mutableStateOf(savedApiHost?.ifBlank { currentProviderInfo.defaultEndpoint } ?: currentProviderInfo.defaultEndpoint)
-    }
-    var formApiKey by remember(savedApiKey) { mutableStateOf(savedApiKey ?: "") }
-    var formModel by remember(savedModel) { mutableStateOf(savedModel ?: "") }
-
-    if (showTtsProviderDialog) {
-        TtsProviderSelectionDialog(
-            currentProviderId = defaultTtsProviderId ?: "",
-            providers = ttsProviderRegistry.allProviders(),
-            onDismiss = { showTtsProviderDialog = false },
-            onSelect = { providerId ->
+    if (showAddDialog || editingConfig != null) {
+        VoiceModelEditDialog(
+            existing = editingConfig,
+            onDismiss = { showAddDialog = false; editingConfig = null },
+            onSave = { config ->
                 scope.launch {
-                    settingsRepository.setDefaultTtsProviderId(providerId)
-                    // Auto-fill API endpoint from provider defaults
-                    val info = VOICE_PROVIDERS.find { it.id == providerId }
-                    if (info != null && info.defaultEndpoint.isNotBlank()) {
-                        settingsRepository.setVoiceApiHost(info.defaultEndpoint)
+                    if (editingConfig != null) {
+                        voiceConfigRepository.updateConfig(config)
+                    } else {
+                        voiceConfigRepository.insertConfig(config)
                     }
                 }
-                showTtsProviderDialog = false
+                showAddDialog = false
+                editingConfig = null
             },
         )
     }
@@ -126,177 +112,208 @@ fun VoiceModelSettingsScreen(
                 },
             )
         },
+        floatingActionButton = {
+            FloatingActionButton(onClick = { showAddDialog = true }) {
+                Icon(Icons.Default.Add, contentDescription = s.addModel)
+            }
+        },
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .verticalScroll(rememberScrollState()),
-        ) {
-            // Provider selection
-            SectionHeader(s.provider)
-            SettingItem(
-                title = providerDisplayName,
-                subtitle = s.ttsProvider,
-                onClick = { showTtsProviderDialog = true },
-            )
-
-            // API config section
-            if (currentProviderInfo.needEndpoint || currentProviderInfo.needApiKey) {
-                SectionHeader(s.configure)
-                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
-                    if (currentProviderInfo.needEndpoint) {
-                        OutlinedTextField(
-                            value = formApiHost,
-                            onValueChange = { formApiHost = it },
-                            label = { Text(s.apiHost) },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true,
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                    }
-                    if (currentProviderInfo.needApiKey) {
-                        OutlinedTextField(
-                            value = formApiKey,
-                            onValueChange = { formApiKey = it },
-                            label = { Text(s.apiKey) },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true,
-                            visualTransformation = PasswordVisualTransformation(),
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                    }
-                    if (currentProviderInfo.needModel) {
-                        OutlinedTextField(
-                            value = formModel,
-                            onValueChange = { formModel = it },
-                            label = { Text(s.modelName) },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true,
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                    }
-                }
-
-                // Action buttons
+        if (configs.isEmpty()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+            ) {
+                Text(s.notConfigured, style = AiChatTypography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Button(
-                        onClick = {
-                            scope.launch {
-                                settingsRepository.setVoiceApiHost(formApiHost)
-                                settingsRepository.setVoiceApiKey(formApiKey)
-                                settingsRepository.setVoiceModel(formModel)
-                            }
-                        },
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        Text(s.save)
-                    }
-                    OutlinedButton(
-                        onClick = {
-                            formApiHost = currentProviderInfo.defaultEndpoint
-                            formApiKey = ""
-                            formModel = ""
-                            scope.launch {
-                                settingsRepository.setVoiceApiHost("")
-                                settingsRepository.setVoiceApiKey("")
-                                settingsRepository.setVoiceModel("")
-                            }
-                        },
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        Text(s.clear)
-                    }
+                Button(onClick = { showAddDialog = true }) {
+                    Text(s.addModel)
                 }
             }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Auto-play voice
-            SectionHeader(s.voice)
-            SettingItem(
-                title = s.autoPlayVoice,
-                subtitle = if (autoPlayVoice) s.on else s.off,
-                onClick = { scope.launch { settingsRepository.setAutoPlayVoice(!autoPlayVoice) } },
-                trailing = {
-                    Switch(
-                        checked = autoPlayVoice,
-                        onCheckedChange = { scope.launch { settingsRepository.setAutoPlayVoice(it) } },
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                items(configs, key = { it.id }) { config ->
+                    VoiceConfigCard(
+                        config = config,
+                        onClick = { editingConfig = config },
+                        onDelete = {
+                            scope.launch { voiceConfigRepository.deleteConfig(config.id) }
+                        },
                     )
-                },
-            )
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun TtsProviderSelectionDialog(
-    currentProviderId: String,
-    providers: List<TtsProvider>,
-    onDismiss: () -> Unit,
-    onSelect: (String) -> Unit,
+private fun VoiceConfigCard(
+    config: VoiceConfigEntity,
+    onClick: () -> Unit,
+    onDelete: () -> Unit,
 ) {
     val s = strings()
-    val scrollState = rememberScrollState()
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(Color(config.provider.hashCode() or 0xFF000000.toInt()).copy(alpha = 0.2f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = config.name.take(1).uppercase(),
+                    style = AiChatTypography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = config.name.ifBlank { config.provider },
+                    style = AiChatTypography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Text(
+                    text = listOfNotNull(
+                        config.voiceId.ifBlank { null },
+                        config.modelName.ifBlank { null },
+                    ).joinToString(" · ").ifBlank { config.baseUrl },
+                    style = AiChatTypography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            IconButton(onClick = onDelete) {
+                Icon(
+                    Icons.Default.Delete,
+                    contentDescription = s.delete,
+                    tint = MaterialTheme.colorScheme.error,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun VoiceModelEditDialog(
+    existing: VoiceConfigEntity?,
+    onDismiss: () -> Unit,
+    onSave: (VoiceConfigEntity) -> Unit,
+) {
+    val s = strings()
+    var name by remember { mutableStateOf(existing?.name ?: "") }
+    var provider by remember { mutableStateOf(existing?.provider ?: "openai-compat-tts") }
+    var baseUrl by remember { mutableStateOf(existing?.baseUrl ?: "https://api.openai.com/v1") }
+    var apiKey by remember { mutableStateOf(existing?.apiKey ?: "") }
+    var modelName by remember { mutableStateOf(existing?.modelName ?: "") }
+    var voiceId by remember { mutableStateOf(existing?.voiceId ?: "") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(s.ttsProvider) },
+        title = { Text(if (existing != null) s.editModel else s.addModel) },
         text = {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(400.dp)
-                    .verticalScroll(scrollState),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                providers.forEach { provider ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .then(
-                                if (provider.id == currentProviderId) {
-                                    Modifier.background(
-                                        MaterialTheme.colorScheme.primaryContainer,
-                                        MaterialTheme.shapes.small,
-                                    )
-                                } else {
-                                    Modifier
-                                }
-                            )
-                            .clickable { onSelect(provider.id) }
-                            .padding(horizontal = 12.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = provider.displayName,
-                            style = AiChatTypography.bodyLarge,
-                            color = if (provider.id == currentProviderId) {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                MaterialTheme.colorScheme.onSurface
-                            },
-                        )
-                    }
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text(s.name) },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                )
+                // Provider selector
+                val currentProvider = VOICE_PROVIDERS.find { it.id == provider } ?: VOICE_PROVIDERS.first()
+                OutlinedTextField(
+                    value = currentProvider.displayName,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text(s.provider) },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = false,
+                )
+                if (currentProvider.needEndpoint) {
+                    OutlinedTextField(
+                        value = baseUrl,
+                        onValueChange = { baseUrl = it },
+                        label = { Text(s.apiHost) },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                    )
                 }
+                if (currentProvider.needApiKey) {
+                    OutlinedTextField(
+                        value = apiKey,
+                        onValueChange = { apiKey = it },
+                        label = { Text(s.apiKey) },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                    )
+                }
+                if (currentProvider.needModel) {
+                    OutlinedTextField(
+                        value = modelName,
+                        onValueChange = { modelName = it },
+                        label = { Text(s.modelName) },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                    )
+                }
+                OutlinedTextField(
+                    value = voiceId,
+                    onValueChange = { voiceId = it },
+                    label = { Text("Voice ID") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    placeholder = { Text("alloy, shimmer, nova...") },
+                )
             }
         },
         confirmButton = {
+            TextButton(
+                onClick = {
+                    val id = existing?.id ?: java.util.UUID.randomUUID().toString()
+                    onSave(
+                        VoiceConfigEntity(
+                            id = id,
+                            provider = provider,
+                            name = name.ifBlank { provider },
+                            baseUrl = baseUrl,
+                            apiKey = apiKey,
+                            modelName = modelName,
+                            voiceId = voiceId,
+                            enabled = true,
+                        )
+                    )
+                },
+                enabled = name.isNotBlank(),
+            ) { Text(s.save) }
+        },
+        dismissButton = {
             TextButton(onClick = onDismiss) { Text(s.cancel) }
         },
-    )
-}
-
-@Composable
-private fun SectionHeader(title: String) {
-    Text(
-        text = title,
-        style = AiChatTypography.titleMedium,
-        color = MaterialTheme.colorScheme.onSurface,
-        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
     )
 }

@@ -101,15 +101,6 @@ class ChatViewModel(
     private fun buildSystemPrompt(char: com.aichat.data.database.entity.CharacterEntity): String {
         val parts = mutableListOf<String>()
         parts.add("You are ${char.name}.")
-        if (char.description.isNotBlank()) {
-            parts.add("Description: ${char.description}")
-        }
-        if (char.personality.isNotBlank()) {
-            parts.add("Personality: ${char.personality}")
-        }
-        if (char.scenario.isNotBlank()) {
-            parts.add("Scenario: ${char.scenario}")
-        }
         if (char.systemPrompt.isNotBlank()) {
             parts.add(char.systemPrompt)
         }

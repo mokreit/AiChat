@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.dp
 import com.aichat.data.character.CharacterRepository
 import com.aichat.data.database.entity.CharacterEntity
 import com.aichat.data.model.ModelConfigRepository
+import com.aichat.data.voice.VoiceConfigRepository
 import com.aichat.design.AiChatTypography
 import com.aichat.design.strings
 import com.aichat.platform.FilePicker
@@ -66,6 +67,7 @@ fun CharacterEditScreen(
     onBack: () -> Unit,
     characterRepository: CharacterRepository = koinInject(),
     modelConfigRepository: ModelConfigRepository = koinInject(),
+    voiceConfigRepository: VoiceConfigRepository = koinInject(),
 ) {
     val s = strings()
     val scope = rememberCoroutineScope()
@@ -74,14 +76,11 @@ fun CharacterEditScreen(
     var name by remember { mutableStateOf("") }
     var avatarUri by remember { mutableStateOf("") }
     var backgroundImage by remember { mutableStateOf("") }
-    var description by remember { mutableStateOf("") }
-    var personality by remember { mutableStateOf("") }
-    var scenario by remember { mutableStateOf("") }
     var firstMessage by remember { mutableStateOf("") }
     var systemPrompt by remember { mutableStateOf("") }
-    var voiceDesignPrompt by remember { mutableStateOf("") }
     var voiceId by remember { mutableStateOf("") }
     var modelConfigId by remember { mutableStateOf("") }
+    var voiceConfigId by remember { mutableStateOf("") }
     var nameError by remember { mutableStateOf(false) }
     var originalCreatedAt by remember { mutableStateOf(0L) }
 
@@ -91,6 +90,7 @@ fun CharacterEditScreen(
     var cropForAvatar by remember { mutableStateOf(false) }
 
     val modelConfigs by modelConfigRepository.getAllConfigs().collectAsState(initial = emptyList())
+    val voiceConfigs by voiceConfigRepository.getAllConfigs().collectAsState(initial = emptyList())
 
     if (isEdit) {
         val characters by characterRepository.getAllCharacters().collectAsState(initial = emptyList())
@@ -100,33 +100,27 @@ fun CharacterEditScreen(
                 name = it.name
                 avatarUri = it.avatarUri
                 backgroundImage = it.backgroundImage
-                description = it.description
-                personality = it.personality
-                scenario = it.scenario
                 firstMessage = it.firstMessage
                 systemPrompt = it.systemPrompt
-                voiceDesignPrompt = it.voiceDesignPrompt
                 voiceId = it.voiceId
                 modelConfigId = it.modelConfigId
+                voiceConfigId = it.voiceConfigId
                 originalCreatedAt = it.createdAt
             }
         }
     }
 
-    // Load avatar bitmap
     LaunchedEffect(avatarUri) {
         if (avatarUri.isNotBlank()) {
             avatarBitmap = loadImageFromFile(avatarUri)
         }
     }
-    // Load bg bitmap
     LaunchedEffect(backgroundImage) {
         if (backgroundImage.isNotBlank()) {
             bgBitmap = loadImageFromFile(backgroundImage)
         }
     }
 
-    // Crop dialog
     cropSource?.let { src ->
         ImageCropDialog(
             bitmap = src,
@@ -257,30 +251,6 @@ fun CharacterEditScreen(
                 singleLine = true,
             )
             OutlinedTextField(
-                value = description,
-                onValueChange = { description = it },
-                label = { Text(s.description) },
-                modifier = Modifier.fillMaxWidth(),
-                minLines = 2,
-                maxLines = 4,
-            )
-            OutlinedTextField(
-                value = personality,
-                onValueChange = { personality = it },
-                label = { Text(s.personality) },
-                modifier = Modifier.fillMaxWidth(),
-                minLines = 2,
-                maxLines = 6,
-            )
-            OutlinedTextField(
-                value = scenario,
-                onValueChange = { scenario = it },
-                label = { Text(s.scenario) },
-                modifier = Modifier.fillMaxWidth(),
-                minLines = 2,
-                maxLines = 6,
-            )
-            OutlinedTextField(
                 value = firstMessage,
                 onValueChange = { firstMessage = it },
                 label = { Text(s.firstMessage) },
@@ -296,14 +266,46 @@ fun CharacterEditScreen(
                 minLines = 2,
                 maxLines = 6,
             )
-            OutlinedTextField(
-                value = voiceId,
-                onValueChange = { voiceId = it },
-                label = { Text("Voice ID") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                placeholder = { Text("alloy, shimmer, nova...") },
-            )
+            // Voice model selector
+            var voiceMenuExpanded by remember { mutableStateOf(false) }
+            val selectedVoiceName = voiceConfigs.find { it.id == voiceConfigId }?.let {
+                it.name.ifBlank { it.voiceId.ifBlank { it.provider } }
+            } ?: s.notConfigured
+
+            ExposedDropdownMenuBox(
+                expanded = voiceMenuExpanded,
+                onExpandedChange = { voiceMenuExpanded = !voiceMenuExpanded },
+            ) {
+                OutlinedTextField(
+                    value = selectedVoiceName,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text(s.voiceModel) },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = voiceMenuExpanded) },
+                    modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable),
+                )
+                ExposedDropdownMenu(
+                    expanded = voiceMenuExpanded,
+                    onDismissRequest = { voiceMenuExpanded = false },
+                ) {
+                    DropdownMenuItem(
+                        text = { Text(s.notConfigured) },
+                        onClick = {
+                            voiceConfigId = ""
+                            voiceMenuExpanded = false
+                        },
+                    )
+                    voiceConfigs.forEach { config ->
+                        DropdownMenuItem(
+                            text = { Text(config.name.ifBlank { config.voiceId.ifBlank { config.provider } }) },
+                            onClick = {
+                                voiceConfigId = config.id
+                                voiceMenuExpanded = false
+                            },
+                        )
+                    }
+                }
+            }
 
             // Model config selector
             var modelMenuExpanded by remember { mutableStateOf(false) }
@@ -361,13 +363,14 @@ fun CharacterEditScreen(
                             name = name,
                             avatarUri = avatarUri,
                             backgroundImage = backgroundImage,
-                            description = description,
-                            personality = personality,
-                            scenario = scenario,
+                            description = "",
+                            personality = "",
+                            scenario = "",
                             firstMessage = firstMessage,
                             systemPrompt = systemPrompt,
-                            voiceDesignPrompt = voiceDesignPrompt,
-                            voiceId = voiceId,
+                            voiceDesignPrompt = "",
+                            voiceId = "",
+                            voiceConfigId = voiceConfigId,
                             modelConfigId = modelConfigId,
                             createdAt = if (isEdit) originalCreatedAt else now,
                             updatedAt = now,

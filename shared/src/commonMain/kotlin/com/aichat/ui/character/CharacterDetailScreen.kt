@@ -101,37 +101,11 @@ fun CharacterDetailScreen(
                     style = AiChatTypography.headlineMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
-                if (char.description.isNotBlank()) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = char.description,
-                        style = AiChatTypography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                if (char.personality.isNotBlank()) {
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(text = s.personality, style = AiChatTypography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(text = char.personality, style = AiChatTypography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                if (char.scenario.isNotBlank()) {
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(text = s.scenario, style = AiChatTypography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(text = char.scenario, style = AiChatTypography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
                 if (char.firstMessage.isNotBlank()) {
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(text = s.firstMessage, style = AiChatTypography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(text = char.firstMessage, style = AiChatTypography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                if (char.voiceDesignPrompt.isNotBlank()) {
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(text = s.voiceDesign, style = AiChatTypography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(text = char.voiceDesignPrompt, style = AiChatTypography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
