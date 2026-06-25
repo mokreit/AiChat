@@ -130,6 +130,7 @@ class ChatViewModel(
             }
 
             var session = chatSessionRepository.getSessionById(resolvedSessionId)
+            val isNewSession = session == null
             if (session == null) {
                 val currentCharacterName = _uiState.value.characterName.ifBlank { "Chat" }
                 session = ChatSessionEntity(
@@ -140,6 +141,22 @@ class ChatViewModel(
                     updatedAt = System.currentTimeMillis(),
                 )
                 chatSessionRepository.insertSession(session)
+            }
+
+            // For new sessions, insert the character's first message into DB
+            if (isNewSession) {
+                val char = characterRepository.getCharacterById(characterId)
+                if (char != null && char.firstMessage.isNotBlank()) {
+                    val firstMsg = MessageEntity(
+                        id = generateId(),
+                        sessionId = resolvedSessionId,
+                        role = "assistant",
+                        content = char.firstMessage,
+                        senderName = char.name,
+                        timestamp = System.currentTimeMillis(),
+                    )
+                    chatSessionRepository.insertMessage(firstMsg)
+                }
             }
 
             chatSessionRepository.getMessagesBySession(resolvedSessionId).collect { entities ->
