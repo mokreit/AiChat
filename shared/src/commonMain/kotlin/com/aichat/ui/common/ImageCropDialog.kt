@@ -58,6 +58,10 @@ private fun CircularCropDialog(
     var offsetY by remember { mutableStateOf(0f) }
     val cropSizeDp = 280.dp
 
+    // Store actual canvas pixel size for crop calculation
+    var canvasPixelSize by remember { mutableStateOf(0f) }
+    var previewPixelSize by remember { mutableStateOf(0f) }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(s.cropImage) },
@@ -72,7 +76,6 @@ private fun CircularCropDialog(
                         .clip(CircleShape)
                         .background(Color(0xFFF0F0F0))
                         .clipToBounds()
-                        // Mouse scroll wheel zoom
                         .pointerInput(Unit) {
                             awaitPointerEventScope {
                                 while (true) {
@@ -87,7 +90,6 @@ private fun CircularCropDialog(
                                 }
                             }
                         }
-                        // Pinch-to-zoom + drag for touch screens
                         .pointerInput(Unit) {
                             awaitPointerEventScope {
                                 var lastDist = 0f
@@ -95,13 +97,11 @@ private fun CircularCropDialog(
                                     val event = awaitPointerEvent(PointerEventPass.Main)
                                     val pressed = event.changes.filter { it.pressed }
                                     if (pressed.size >= 2) {
-                                        // Pinch gesture
                                         val p0 = pressed[0].position
                                         val p1 = pressed[1].position
                                         val dist = (p1 - p0).getDistance()
                                         if (lastDist > 0f) {
-                                            val delta = (dist - lastDist) * 0.3f
-                                            zoom = (zoom + delta).coerceIn(30f, 300f)
+                                            zoom = (zoom + (dist - lastDist) * 0.3f).coerceIn(30f, 300f)
                                         }
                                         lastDist = dist
                                         pressed.forEach { it.consume() }
@@ -111,7 +111,6 @@ private fun CircularCropDialog(
                                 }
                             }
                         }
-                        // Single-finger drag to move image
                         .pointerInput(Unit) {
                             detectDragGestures { change, dragAmount ->
                                 change.consume()
@@ -120,7 +119,9 @@ private fun CircularCropDialog(
                             }
                         },
                 ) {
+                    // Image layer
                     Canvas(modifier = Modifier.fillMaxSize()) {
+                        canvasPixelSize = size.width
                         val scale = zoom / 100f
                         val fitScale = min(size.width / imgW, size.height / imgH) * scale
                         val drawW = imgW * fitScale
@@ -129,6 +130,7 @@ private fun CircularCropDialog(
                         val y = (size.height - drawH) / 2f + offsetY
                         drawImage(image = bitmap, dstOffset = IntOffset(x.roundToInt(), y.roundToInt()), dstSize = IntSize(drawW.roundToInt(), drawH.roundToInt()))
                     }
+                    // Mask layer
                     Canvas(modifier = Modifier.fillMaxSize().graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }) {
                         drawRect(Color.Black.copy(alpha = 0.4f))
                         drawCircle(Color.Transparent, radius = size.minDimension / 2, center = Offset(size.width / 2, size.height / 2), blendMode = BlendMode.Clear)
@@ -152,10 +154,12 @@ private fun CircularCropDialog(
                 Spacer(modifier = Modifier.height(4.dp))
                 Box(modifier = Modifier.size(56.dp).clip(CircleShape).background(Color(0xFFF0F0F0)).clipToBounds()) {
                     Canvas(modifier = Modifier.size(56.dp)) {
+                        previewPixelSize = size.width
                         val scale = zoom / 100f
                         val fitScale = min(size.width / imgW, size.height / imgH) * scale
                         val drawW = imgW * fitScale; val drawH = imgH * fitScale
-                        val offScale = size.width / 280f
+                        // Scale offset from main canvas to preview canvas
+                        val offScale = if (canvasPixelSize > 0f) size.width / canvasPixelSize else 1f
                         val x = (size.width - drawW) / 2f + offsetX * offScale
                         val y = (size.height - drawH) / 2f + offsetY * offScale
                         drawImage(image = bitmap, dstOffset = IntOffset(x.roundToInt(), y.roundToInt()), dstSize = IntSize(drawW.roundToInt(), drawH.roundToInt()))
@@ -165,14 +169,23 @@ private fun CircularCropDialog(
         },
         confirmButton = {
             TextButton(onClick = {
-                val scale = zoom / 100f; val ref = 280f
+                // Use actual canvas pixel size, not dp value
+                val ref = canvasPixelSize
+                if (ref <= 0f) return@TextButton
+                val scale = zoom / 100f
                 val fitScale = min(ref / imgW, ref / imgH) * scale
                 val drawW = imgW * fitScale; val drawH = imgH * fitScale
-                val imgX = (ref - drawW) / 2f + offsetX; val imgY = (ref - drawH) / 2f + offsetY
-                val srcX = ((0f - imgX) / drawW * imgW).roundToInt().coerceIn(0, bitmap.width - 1)
-                val srcY = ((0f - imgY) / drawH * imgH).roundToInt().coerceIn(0, bitmap.height - 1)
-                val srcW = (ref / drawW * imgW).roundToInt().coerceIn(1, bitmap.width - srcX)
-                val srcH = (ref / drawH * imgH).roundToInt().coerceIn(1, bitmap.height - srcY)
+                // Image top-left in canvas coordinates
+                val imgX = (ref - drawW) / 2f + offsetX
+                val imgY = (ref - drawH) / 2f + offsetY
+                // Crop region = canvas center circle radius = ref/2
+                val cropRadius = ref / 2f
+                val cropCenter = ref / 2f
+                // Map crop region back to bitmap coordinates
+                val srcX = ((cropCenter - cropRadius - imgX) / drawW * imgW).roundToInt().coerceIn(0, bitmap.width - 1)
+                val srcY = ((cropCenter - cropRadius - imgY) / drawH * imgH).roundToInt().coerceIn(0, bitmap.height - 1)
+                val srcW = ((cropRadius * 2) / drawW * imgW).roundToInt().coerceIn(1, bitmap.width - srcX)
+                val srcH = ((cropRadius * 2) / drawH * imgH).roundToInt().coerceIn(1, bitmap.height - srcY)
                 val cropped = cropImageBitmap(bitmap, srcX, srcY, srcW, srcH)
                 if (cropped != null) onConfirm(cropped)
             }) { Text(s.confirm) }
@@ -212,7 +225,6 @@ private fun RectCropDialog(
                         .width(canvasW.dp)
                         .height(canvasH.dp)
                         .background(Color(0xFFF0F0F0))
-                        // Mouse scroll wheel zoom (resize crop region from center)
                         .pointerInput(Unit) {
                             awaitPointerEventScope {
                                 while (true) {
@@ -240,7 +252,6 @@ private fun RectCropDialog(
                                 }
                             }
                         }
-                        // Pinch-to-zoom on touch screens
                         .pointerInput(Unit) {
                             awaitPointerEventScope {
                                 var lastDist = 0f
@@ -275,7 +286,6 @@ private fun RectCropDialog(
                                 }
                             }
                         }
-                        // Drag corners or move crop region
                         .pointerInput(Unit) {
                             detectDragGestures(
                                 onDragStart = { offset ->
@@ -355,6 +365,7 @@ private fun RectCropDialog(
         },
         confirmButton = {
             TextButton(onClick = {
+                // Rect crop uses normalized coordinates, directly map to bitmap pixels - this is correct
                 val srcX = (cropLeft * imgW).roundToInt().coerceIn(0, bitmap.width - 1)
                 val srcY = (cropTop * imgH).roundToInt().coerceIn(0, bitmap.height - 1)
                 val srcW = ((cropRight - cropLeft) * imgW).roundToInt().coerceIn(1, bitmap.width - srcX)

@@ -152,11 +152,13 @@ fun ChatBubble(
         } else {
             // Character avatar on left
             if (avatarName.isNotBlank()) {
-                CharacterAvatar(
-                    name = avatarName,
-                    avatarUri = avatarUri,
-                    modifier = Modifier.size(40.dp).padding(start = 8.dp),
-                )
+                Box(modifier = Modifier.padding(start = 8.dp)) {
+                    CharacterAvatar(
+                        name = avatarName,
+                        avatarUri = avatarUri,
+                        modifier = Modifier.size(40.dp),
+                    )
+                }
                 Spacer(modifier = Modifier.width(4.dp))
             }
         }

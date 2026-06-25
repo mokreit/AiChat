@@ -361,17 +361,20 @@ fun ChatScreen(
                         ChatBubble(
                             text = uiState.streamingContent,
                             isUser = false,
+                            avatarName = uiState.characterName,
+                            avatarUri = characterAvatarUri,
                         )
                     }
                 }
 
-                // Loading indicator
+                // Loading indicator (with avatar, same style as streaming bubble)
                 if (uiState.isStreaming && uiState.streamingContent.isBlank()) {
                     item(key = "loading") {
-                        LinearProgressIndicator(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                        ChatBubble(
+                            text = "...",
+                            isUser = false,
+                            avatarName = uiState.characterName,
+                            avatarUri = characterAvatarUri,
                         )
                     }
                 }
