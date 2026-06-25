@@ -31,9 +31,11 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -58,9 +60,11 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import com.aichat.data.character.CharacterRepository
 import com.aichat.data.model.ModelConfigRepository
+import com.aichat.design.AiChatColors
 import com.aichat.design.AiChatTypography
 import com.aichat.design.ChatBubble
 import com.aichat.design.ChatInputField
+import com.aichat.design.TypingIndicator
 import com.aichat.design.strings
 import org.koin.compose.koinInject
 
@@ -167,9 +171,12 @@ fun ChatScreen(
     var exportSuccess by remember { mutableStateOf<Boolean?>(null) }
 
     LaunchedEffect(uiState.messages.size, uiState.streamingContent) {
-        // With reverseLayout, index 0 = newest message at bottom
+        // Scroll to the last item (bottom of chat)
         if (uiState.messages.isNotEmpty() || uiState.streamingContent.isNotBlank()) {
-            listState.animateScrollToItem(0)
+            val totalItems = uiState.messages.size + if (uiState.isStreaming) 1 else 0
+            if (totalItems > 0) {
+                listState.animateScrollToItem(totalItems - 1)
+            }
         }
     }
 
@@ -347,40 +354,17 @@ fun ChatScreen(
             LazyColumn(
                 state = listState,
                 modifier = Modifier.weight(1f),
-                reverseLayout = true,
-                verticalArrangement = Arrangement.spacedBy(4.dp),
+                verticalArrangement = Arrangement.Bottom,
                 contentPadding = PaddingValues(vertical = 8.dp),
             ) {
-                val messages = if (halfScreenMode && uiState.messages.isNotEmpty() && !uiState.isStreaming) {
+                val messages = if (halfScreenMode && uiState.messages.isNotEmpty()) {
                     listOf(uiState.messages.last())
                 } else {
                     uiState.messages
                 }
 
-                // reverseLayout=true renders bottom-to-top, so reverse the list
-                val displayMessages = messages.reversed()
-
-                // Streaming content (show first = appears at bottom)
-                if (uiState.isStreaming && uiState.streamingContent.isBlank()) {
-                    item(key = "loading") {
-                        ChatBubble(
-                            text = "...",
-                            isUser = false,
-                            avatarName = uiState.characterName,
-                            avatarUri = characterAvatarUri,
-                        )
-                    }
-                }
-                if (uiState.isStreaming && uiState.streamingContent.isNotBlank()) {
-                    item(key = "streaming") {
-                        ChatBubble(
-                            text = uiState.streamingContent,
-                            isUser = false,
-                            avatarName = uiState.characterName,
-                            avatarUri = characterAvatarUri,
-                        )
-                    }
-                }
+                // Show messages in chronological order
+                val displayMessages = messages
 
                 items(displayMessages, key = { it.id }) { message ->
                     ChatBubble(
@@ -399,6 +383,42 @@ fun ChatScreen(
                             onLongClick = { selectedMessage = message },
                         ),
                     )
+                }
+
+                // Streaming content (after messages = appears at bottom)
+                if (uiState.isStreaming && uiState.streamingContent.isBlank()) {
+                    item(key = "loading") {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                            horizontalArrangement = Arrangement.Start,
+                            verticalAlignment = Alignment.Bottom,
+                        ) {
+                            Box(modifier = Modifier.padding(start = 8.dp, end = 4.dp)) {
+                                com.aichat.design.CharacterAvatar(
+                                    name = uiState.characterName,
+                                    avatarUri = characterAvatarUri,
+                                    modifier = Modifier.size(36.dp),
+                                )
+                            }
+                            Surface(
+                                shape = RoundedCornerShape(20.dp, 20.dp, 20.dp, 6.dp),
+                                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                            ) {
+                                TypingIndicator()
+                            }
+                        }
+                    }
+                }
+                if (uiState.isStreaming && uiState.streamingContent.isNotBlank()) {
+                    item(key = "streaming") {
+                        ChatBubble(
+                            text = uiState.streamingContent,
+                            isUser = false,
+                            avatarName = uiState.characterName,
+                            avatarUri = characterAvatarUri,
+                        )
+                    }
                 }
             }
 
@@ -447,17 +467,21 @@ fun ChatScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     for (suggestion in uiState.suggestions) {
-                        androidx.compose.material3.SuggestionChip(
+                        Surface(
                             onClick = { viewModel.selectSuggestion(suggestion) },
-                            label = {
-                                Text(
-                                    text = suggestion,
-                                    style = AiChatTypography.bodySmall,
-                                    maxLines = 2,
-                                )
-                            },
+                            shape = RoundedCornerShape(16.dp),
+                            color = AiChatColors.aiAccentSurface,
+                            border = androidx.compose.foundation.BorderStroke(1.dp, AiChatColors.aiAccent.copy(alpha = 0.3f)),
                             modifier = Modifier.weight(1f),
-                        )
+                        ) {
+                            Text(
+                                text = suggestion,
+                                style = AiChatTypography.bodySmall,
+                                color = AiChatColors.aiAccent,
+                                maxLines = 2,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                            )
+                        }
                     }
                 }
             }

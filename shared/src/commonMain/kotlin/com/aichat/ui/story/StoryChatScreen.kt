@@ -59,7 +59,12 @@ fun StoryChatScreen(
 
     LaunchedEffect(uiState.messages.size, uiState.streamingSegments.size, uiState.streamingContent) {
         if (uiState.messages.isNotEmpty() || uiState.streamingContent.isNotBlank() || uiState.streamingSegments.isNotEmpty()) {
-            listState.animateScrollToItem(0)
+            val totalItems = uiState.messages.size + if (uiState.isStreaming) {
+                if (uiState.streamingSegments.isNotEmpty()) uiState.streamingSegments.size else 1
+            } else 0
+            if (totalItems > 0) {
+                listState.animateScrollToItem(totalItems - 1)
+            }
         }
     }
 
@@ -129,19 +134,51 @@ fun StoryChatScreen(
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.weight(1f),
-                    reverseLayout = true,
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalArrangement = Arrangement.Bottom,
                     contentPadding = PaddingValues(vertical = 8.dp),
                 ) {
-                    // Loading indicator (rendered first = appears at bottom)
-                    if (uiState.isStreaming && uiState.streamingContent.isBlank()) {
-                        item(key = "loading") {
-                            val firstChar = uiState.characters.firstOrNull()
+                    // Story description as intro (at top when no messages)
+                    if (uiState.storyDescription.isNotBlank() && uiState.messages.isEmpty() && !uiState.isStreaming) {
+                        item(key = "intro") {
+                            Text(
+                                text = uiState.storyDescription,
+                                style = AiChatTypography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                            )
+                        }
+                    }
+
+                    // Messages in chronological order
+                    items(uiState.messages, key = { it.id }) { message ->
+                        val isUser = message.role == "user"
+                        val avatarUri = if (isUser) "" else viewModel.getAvatarForSender(message.senderName)
+                        val displayName = if (isUser) {
+                            message.senderName.ifBlank { uiState.userNickname }
+                        } else {
+                            message.senderName.ifBlank { "旁白" }
+                        }
+
+                        ChatBubble(
+                            text = message.content,
+                            isUser = isUser,
+                            avatarName = if (isUser) "" else displayName,
+                            avatarUri = avatarUri,
+                        )
+                    }
+
+                    // Streaming: show segments in real-time (each character gets own bubble)
+                    if (uiState.isStreaming && uiState.streamingSegments.isNotEmpty()) {
+                        itemsIndexed(
+                            items = uiState.streamingSegments,
+                            key = { index, segment -> "streaming-$index-${segment.senderName}" },
+                        ) { _, segment ->
+                            val avatarUri = viewModel.getAvatarForSender(segment.senderName)
                             ChatBubble(
-                                text = "...",
+                                text = segment.content,
                                 isUser = false,
-                                avatarName = firstChar?.name ?: "旁白",
-                                avatarUri = firstChar?.avatarUri ?: "",
+                                avatarName = segment.senderName,
+                                avatarUri = avatarUri,
                             )
                         }
                     }
@@ -159,49 +196,15 @@ fun StoryChatScreen(
                         }
                     }
 
-                    // Streaming: show segments in real-time (each character gets own bubble)
-                    if (uiState.isStreaming && uiState.streamingSegments.isNotEmpty()) {
-                        itemsIndexed(
-                            items = uiState.streamingSegments.reversed(),
-                            key = { index, segment -> "streaming-$index-${segment.senderName}" },
-                        ) { _, segment ->
-                            val avatarUri = viewModel.getAvatarForSender(segment.senderName)
+                    // Loading indicator (at bottom)
+                    if (uiState.isStreaming && uiState.streamingContent.isBlank()) {
+                        item(key = "loading") {
+                            val firstChar = uiState.characters.firstOrNull()
                             ChatBubble(
-                                text = segment.content,
+                                text = "...",
                                 isUser = false,
-                                avatarName = segment.senderName,
-                                avatarUri = avatarUri,
-                            )
-                        }
-                    }
-
-                    // Messages with character avatars (reversed for reverseLayout)
-                    val reversedMessages = uiState.messages.reversed()
-                    items(reversedMessages, key = { it.id }) { message ->
-                        val isUser = message.role == "user"
-                        val avatarUri = if (isUser) "" else viewModel.getAvatarForSender(message.senderName)
-                        val displayName = if (isUser) {
-                            message.senderName.ifBlank { uiState.userNickname }
-                        } else {
-                            message.senderName.ifBlank { "旁白" }
-                        }
-
-                        ChatBubble(
-                            text = message.content,
-                            isUser = isUser,
-                            avatarName = if (isUser) "" else displayName,
-                            avatarUri = avatarUri,
-                        )
-                    }
-
-                    // Story description as intro (at top = rendered last in reverseLayout)
-                    if (uiState.storyDescription.isNotBlank() && uiState.messages.isEmpty() && !uiState.isStreaming) {
-                        item(key = "intro") {
-                            Text(
-                                text = uiState.storyDescription,
-                                style = AiChatTypography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                                avatarName = firstChar?.name ?: "旁白",
+                                avatarUri = firstChar?.avatarUri ?: "",
                             )
                         }
                     }

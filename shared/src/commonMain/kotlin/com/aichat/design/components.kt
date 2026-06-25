@@ -1,7 +1,12 @@
 package com.aichat.design
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
@@ -10,6 +15,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -18,20 +24,17 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -43,12 +46,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.pointer.pointerInput
 import com.aichat.design.strings
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
 @Composable
 fun CharacterAvatar(
@@ -73,7 +78,7 @@ fun CharacterAvatar(
     Box(
         modifier = modifier
             .clip(CircleShape)
-            .background(MaterialTheme.colorScheme.tertiary),
+            .background(AiChatColors.aiAccent),
         contentAlignment = Alignment.Center,
     ) {
         if (bitmap != null) {
@@ -131,6 +136,43 @@ fun UserAvatar(
     }
 }
 
+/** AI-Native 3-dot typing indicator */
+@Composable
+fun TypingIndicator(modifier: Modifier = Modifier) {
+    val infiniteTransition = rememberInfiniteTransition(label = "typing")
+    val dots = listOf(
+        infiniteTransition.animateFloat(
+            initialValue = 0.3f, targetValue = 1f,
+            animationSpec = infiniteRepeatable(tween(400), RepeatMode.Reverse),
+            label = "dot1"
+        ),
+        infiniteTransition.animateFloat(
+            initialValue = 0.3f, targetValue = 1f,
+            animationSpec = infiniteRepeatable(tween(400, delayMillis = 150), RepeatMode.Reverse),
+            label = "dot2"
+        ),
+        infiniteTransition.animateFloat(
+            initialValue = 0.3f, targetValue = 1f,
+            animationSpec = infiniteRepeatable(tween(400, delayMillis = 300), RepeatMode.Reverse),
+            label = "dot3"
+        ),
+    )
+    Row(
+        modifier = modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        dots.forEach { alpha ->
+            Box(
+                modifier = Modifier
+                    .size(7.dp)
+                    .clip(CircleShape)
+                    .background(AiChatColors.typingDot.copy(alpha = alpha.value))
+            )
+        }
+    }
+}
+
 @Composable
 fun ChatBubble(
     text: String,
@@ -143,65 +185,73 @@ fun ChatBubble(
     userAvatarUri: String = "",
     modifier: Modifier = Modifier,
 ) {
-    val bgColor by animateColorAsState(
-        targetValue = if (isUser) AiChatColors.chatBubbleUser else AiChatColors.chatBubbleAssistant,
-        animationSpec = tween(200),
-    )
-    val textColor = if (isUser) AiChatColors.chatBubbleUserText else AiChatColors.chatBubbleAssistantText
     val darkTheme = LocalDarkTheme.current
-    val adjustedBg = if (!isUser && darkTheme) Color(0xFF2A2A2A) else bgColor
-    val adjustedText = if (!isUser && darkTheme) Color(0xFFE0E0E0) else textColor
+
+    // AI-Native bubble colors
+    val bubbleBg = when {
+        isUser -> AiChatColors.chatBubbleUser
+        darkTheme -> AiChatColors.chatBubbleAssistantDark
+        else -> AiChatColors.chatBubbleAssistant
+    }
+    val bubbleText = when {
+        isUser -> AiChatColors.chatBubbleUserText
+        darkTheme -> AiChatColors.chatBubbleAssistantDarkText
+        else -> AiChatColors.chatBubbleAssistantText
+    }
+    val bubbleBorder = when {
+        isUser -> null
+        darkTheme -> BorderStroke(1.dp, AiChatColors.chatBubbleAssistantDarkBorder)
+        else -> BorderStroke(1.dp, AiChatColors.chatBubbleAssistantBorder)
+    }
 
     Row(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth().padding(vertical = 2.dp),
         horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start,
         verticalAlignment = Alignment.Bottom,
     ) {
         if (isUser) {
-            // User avatar on right
-            Spacer(modifier = Modifier.weight(1f).fillMaxWidth(0.2f))
+            Spacer(modifier = Modifier.weight(1f).fillMaxWidth(0.15f))
         } else {
-            // Character avatar on left
             if (avatarName.isNotBlank()) {
-                Box(modifier = Modifier.padding(start = 8.dp)) {
+                Box(modifier = Modifier.padding(start = 8.dp, end = 4.dp)) {
                     CharacterAvatar(
                         name = avatarName,
                         avatarUri = avatarUri,
-                        modifier = Modifier.size(40.dp),
+                        modifier = Modifier.size(36.dp),
                     )
                 }
-                Spacer(modifier = Modifier.width(4.dp))
             }
         }
 
-        Card(
+        Surface(
             shape = RoundedCornerShape(
-                topStart = 16.dp,
-                topEnd = 16.dp,
-                bottomStart = if (isUser) 16.dp else 4.dp,
-                bottomEnd = if (isUser) 4.dp else 16.dp,
+                topStart = 20.dp,
+                topEnd = 20.dp,
+                bottomStart = if (isUser) 20.dp else 6.dp,
+                bottomEnd = if (isUser) 6.dp else 20.dp,
             ),
-            colors = CardDefaults.cardColors(containerColor = adjustedBg),
+            color = bubbleBg,
+            border = bubbleBorder,
+            shadowElevation = if (isUser) 0.dp else 0.dp,
             modifier = Modifier
                 .widthIn(max = 280.dp)
-                .padding(vertical = 4.dp),
+                .padding(vertical = 2.dp),
         ) {
-            Column(modifier = Modifier.padding(12.dp)) {
+            Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
                 if (isUser) {
                     Text(
                         text = text,
                         style = AiChatTypography.bodyMedium,
-                        color = adjustedText,
+                        color = bubbleText,
                     )
                 } else {
-                    // Parse segments: dialogue (black) / action (gray) / meta (gray)
                     val segments = parseContentSegments(text)
                     Text(
                         text = buildAnnotatedString {
                             segments.forEach { seg ->
                                 val color = when (seg.type) {
-                                    "dialogue" -> Color(0xFF333333)
-                                    else -> Color(0xFF999999)
+                                    "dialogue" -> if (darkTheme) Color(0xFFCBD5E1) else Color(0xFF334155)
+                                    else -> if (darkTheme) Color(0xFF64748B) else Color(0xFF94A3B8)
                                 }
                                 withStyle(androidx.compose.ui.text.SpanStyle(color = color)) {
                                     append(seg.text)
@@ -215,17 +265,17 @@ fun ChatBubble(
                     Spacer(modifier = Modifier.height(4.dp))
                     IconButton(
                         onClick = onPlayClick,
-                        modifier = Modifier.size(32.dp),
+                        modifier = Modifier.size(28.dp),
                         enabled = !isSynthesizing,
                     ) {
                         if (isPlaying || isSynthesizing) {
                             CircularProgressIndicator(
-                                modifier = Modifier.size(16.dp),
+                                modifier = Modifier.size(14.dp),
                                 strokeWidth = 2.dp,
                                 color = AiChatColors.voiceWave,
                             )
                         } else {
-                            Text("\u25B6", fontSize = androidx.compose.ui.unit.TextUnit(14f, androidx.compose.ui.unit.TextUnitType.Sp))
+                            Text("\u25B6", fontSize = 12.sp, color = AiChatColors.aiAccent)
                         }
                     }
                 }
@@ -234,10 +284,9 @@ fun ChatBubble(
 
         if (isUser) {
             Spacer(modifier = Modifier.width(4.dp))
-            // User avatar
             UserAvatar(
                 avatarUri = userAvatarUri,
-                modifier = Modifier.size(40.dp).padding(end = 8.dp),
+                modifier = Modifier.size(36.dp).padding(end = 8.dp),
             )
         }
     }
@@ -262,42 +311,36 @@ fun ChatInputField(
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         if (isVoiceMode) {
-            // Voice mode: long-press to talk, drag up to cancel
             var dragOffsetY by remember { mutableStateOf(0f) }
             var isRecordingActive by remember { mutableStateOf(false) }
-            var isPressing by remember { mutableStateOf(false) }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                // Switch back to keyboard
                 IconButton(onClick = onVoiceToggle ?: {}) {
                     Icon(
                         imageVector = Icons.Filled.Keyboard,
                         contentDescription = "Keyboard",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        tint = AiChatColors.aiAccent,
                     )
                 }
-                // Hold-to-talk button
                 Box(
                     modifier = Modifier
                         .weight(1f)
                         .height(48.dp)
                         .clip(RoundedCornerShape(24.dp))
                         .background(
-                            if (isRecordingActive) MaterialTheme.colorScheme.error.copy(alpha = 0.25f)
+                            if (isRecordingActive) AiChatColors.aiAccent.copy(alpha = 0.15f)
                             else MaterialTheme.colorScheme.surfaceVariant,
                         )
                         .pointerInput(Unit) {
                             detectDragGesturesAfterLongPress(
                                 onDragStart = {
-                                    isPressing = true
                                     dragOffsetY = 0f
                                     isRecordingActive = true
                                     onVoicePressStart?.invoke()
                                 },
                                 onDragEnd = {
-                                    isPressing = false
                                     if (isRecordingActive) {
                                         isRecordingActive = false
                                         if (dragOffsetY < -160f) {
@@ -308,108 +351,141 @@ fun ChatInputField(
                                     }
                                 },
                                 onDragCancel = {
-                                    isPressing = false
                                     if (isRecordingActive) {
                                         isRecordingActive = false
                                         onVoicePressCancel?.invoke()
                                     }
                                 },
-                                onDrag = { change, dragAmount ->
-                                    dragOffsetY += dragAmount.y
-                                }
+                                onDrag = { _, dragAmount -> dragOffsetY += dragAmount.y }
                             )
                         },
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
                         text = if (isRecordingActive) {
-                            if (dragOffsetY < -160f) "松开取消" else "松开发送"
-                        } else "按住说话",
+                            if (dragOffsetY < -160f) "\u677E\u5F00\u53D6\u6D88" else "\u677E\u5F00\u53D1\u9001"
+                        } else "\u6309\u4F4F\u8BF4\u8BDD",
                         style = AiChatTypography.bodyLarge,
-                        color = if (isRecordingActive) MaterialTheme.colorScheme.error
+                        color = if (isRecordingActive) AiChatColors.aiAccent
                                 else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
         } else {
-            // Normal text input mode
-            OutlinedTextField(
-                value = value,
-                onValueChange = onValueChange,
-                modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text(placeholder ?: strings().typeMessage, style = AiChatTypography.bodyMedium) },
-                maxLines = 4,
+            // AI-Native clean input field
+            Surface(
                 shape = RoundedCornerShape(24.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = MaterialTheme.colorScheme.tertiary,
-                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-                ),
-                trailingIcon = {
-                    Row {
-                        // Suggest reply button
-                        if (onSuggest != null) {
-                            IconButton(onClick = onSuggest, enabled = !isSuggesting && !isSending) {
-                                if (isSuggesting) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(20.dp),
-                                        strokeWidth = 2.dp,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                } else {
-                                    Icon(
-                                        imageVector = Icons.Filled.AutoAwesome,
-                                        contentDescription = "推荐回复",
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
-                            }
-                        }
-                        // Voice toggle button (to the left of send)
-                        if (onVoiceToggle != null) {
-                            IconButton(onClick = onVoiceToggle) {
+                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    // Suggest button
+                    if (onSuggest != null) {
+                        IconButton(
+                            onClick = onSuggest,
+                            enabled = !isSuggesting && !isSending,
+                            modifier = Modifier.size(40.dp),
+                        ) {
+                            if (isSuggesting) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(18.dp),
+                                    strokeWidth = 2.dp,
+                                    color = AiChatColors.aiAccent,
+                                )
+                            } else {
                                 Icon(
-                                    imageVector = Icons.Filled.Mic,
-                                    contentDescription = "Voice",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    imageVector = Icons.Filled.AutoAwesome,
+                                    contentDescription = "\u63A8\u8350\u56DE\u590D",
+                                    tint = AiChatColors.aiAccent,
+                                    modifier = Modifier.size(20.dp),
                                 )
                             }
                         }
-                        // Send / Stop button
-                        if (isSending && onStop != null) {
-                            Button(
-                                onClick = onStop,
-                                shape = CircleShape,
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.error,
-                                ),
-                                modifier = Modifier.padding(4.dp),
+                    }
+                    // Text input
+                    BasicTextField(
+                        value = value,
+                        onValueChange = onValueChange,
+                        modifier = Modifier
+                            .weight(1f)
+                            .defaultMinSize(minHeight = 40.dp),
+                        textStyle = AiChatTypography.bodyMedium.copy(
+                            color = MaterialTheme.colorScheme.onSurface,
+                        ),
+                        cursorBrush = SolidColor(AiChatColors.aiAccent),
+                        maxLines = 4,
+                        decorationBox = { innerTextField ->
+                            Box(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
+                                contentAlignment = Alignment.CenterStart,
                             ) {
-                                Text("\u25A0", fontSize = androidx.compose.ui.unit.TextUnit(14f, androidx.compose.ui.unit.TextUnitType.Sp))
-                            }
-                        } else {
-                            Button(
-                                onClick = onSend,
-                                enabled = value.isNotBlank() && !isSending,
-                                shape = CircleShape,
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.tertiary,
-                                ),
-                                modifier = Modifier.padding(4.dp),
-                            ) {
-                                Text("\u27A4", fontSize = androidx.compose.ui.unit.TextUnit(16f, androidx.compose.ui.unit.TextUnitType.Sp))
+                                if (value.isEmpty()) {
+                                    Text(
+                                        text = placeholder ?: strings().typeMessage,
+                                        style = AiChatTypography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                                innerTextField()
                             }
                         }
+                    )
+                    // Voice toggle
+                    if (onVoiceToggle != null) {
+                        IconButton(
+                            onClick = onVoiceToggle,
+                            modifier = Modifier.size(40.dp),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Mic,
+                                contentDescription = "Voice",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(20.dp),
+                            )
+                        }
                     }
-                },
-            )
+                    // Send / Stop button
+                    if (isSending && onStop != null) {
+                        IconButton(
+                            onClick = onStop,
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.error),
+                        ) {
+                            Text("\u25A0", color = Color.White, fontSize = 14.sp)
+                        }
+                    } else {
+                        IconButton(
+                            onClick = onSend,
+                            enabled = value.isNotBlank() && !isSending,
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    if (value.isNotBlank()) AiChatColors.aiAccent
+                                    else MaterialTheme.colorScheme.outline,
+                                ),
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.Send,
+                                contentDescription = "Send",
+                                tint = Color.White,
+                                modifier = Modifier.size(18.dp),
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }
 
-// Content segment parsing for dialogue/action/meta (like original project)
-// [...] = meta (not read by TTS, gray)
-// （...）或(...) = action (not read by TTS, gray)
-// rest = dialogue (read by TTS, dark)
+// Content segment parsing
 private data class ContentSegment(val type: String, val text: String)
 
 private fun parseContentSegments(content: String): List<ContentSegment> {
