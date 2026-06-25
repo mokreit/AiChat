@@ -41,12 +41,15 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.aichat.data.ai.AiRepository
 import com.aichat.data.api.ApiResult
+import com.aichat.data.database.entity.ModelConfigEntity
+import com.aichat.data.model.ModelConfigRepository
 import com.aichat.data.settings.SettingsRepository
 import com.aichat.design.AiChatTypography
 import com.aichat.design.SettingItem
 import com.aichat.design.strings
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
+import kotlinx.coroutines.flow.first
 
 data class TextProvider(
     val id: String,
@@ -72,6 +75,7 @@ val TEXT_PROVIDERS = listOf(
 fun TextModelSettingsScreen(
     onBack: () -> Unit,
     settingsRepository: SettingsRepository = koinInject(),
+    modelConfigRepository: ModelConfigRepository = koinInject(),
     aiRepository: AiRepository = koinInject(),
 ) {
     val s = strings()
@@ -90,10 +94,22 @@ fun TextModelSettingsScreen(
     var showProviderPicker by remember { mutableStateOf(false) }
     var currentProviderId by remember { mutableStateOf("openai") }
 
-    // Sync form fields when saved settings are loaded from DataStore
-    LaunchedEffect(apiHost, apiKey) {
-        if (apiHost != null && apiHost!!.isNotBlank()) formApiEndpoint = apiHost!!
-        if (apiKey != null && apiKey!!.isNotBlank()) formApiKey = apiKey!!
+    // Sync form fields when saved settings are loaded
+    LaunchedEffect(Unit) {
+        // Load from Room ModelConfig first (has all fields)
+        val config = modelConfigRepository.getDefaultConfig()
+        if (config != null) {
+            formApiEndpoint = config.baseUrl
+            formApiKey = config.apiKey
+            formModel = config.modelName
+            currentProviderId = config.provider
+        } else {
+            // Fallback to DataStore
+            val host = settingsRepository.apiHost.first()
+            val key = settingsRepository.apiKey.first()
+            if (!host.isNullOrBlank()) formApiEndpoint = host
+            if (!key.isNullOrBlank()) formApiKey = key
+        }
     }
 
     // Detect current provider from apiHost
@@ -253,6 +269,24 @@ fun TextModelSettingsScreen(
                         scope.launch {
                             settingsRepository.setApiHost(formApiEndpoint)
                             settingsRepository.setApiKey(formApiKey)
+                            // Save or update ModelConfigEntity so ChatViewModel can find it
+                            val existing = modelConfigRepository.getDefaultConfig()
+                            val id = existing?.id ?: "default"
+                            val config = ModelConfigEntity(
+                                id = id,
+                                provider = currentProviderId,
+                                name = currentProvider.name,
+                                baseUrl = formApiEndpoint,
+                                apiKey = formApiKey,
+                                modelName = formModel,
+                                enabled = true,
+                            )
+                            if (existing != null) {
+                                modelConfigRepository.updateConfig(config)
+                            } else {
+                                modelConfigRepository.insertConfig(config)
+                            }
+                            settingsRepository.setDefaultModelConfigId(id)
                         }
                     },
                     modifier = Modifier.weight(1f),
@@ -267,6 +301,11 @@ fun TextModelSettingsScreen(
                         scope.launch {
                             settingsRepository.setApiHost("")
                             settingsRepository.setApiKey("")
+                            // Remove default config
+                            val existing = modelConfigRepository.getDefaultConfig()
+                            if (existing != null) {
+                                modelConfigRepository.deleteConfig(existing.id)
+                            }
                         }
                     },
                     modifier = Modifier.weight(1f),
