@@ -50,6 +50,8 @@ data class ChatUiState(
     val playingMessageId: String? = null,
     val synthesizingMessageId: String? = null,
     val error: String? = null,
+    val suggestions: List<String> = emptyList(),
+    val isSuggesting: Boolean = false,
 )
 
 class ChatViewModel(
@@ -161,6 +163,141 @@ class ChatViewModel(
 
     fun updateInput(text: String) {
         _uiState.value = _uiState.value.copy(inputText = text)
+    }
+
+    /** Send a text directly without going through input state */
+    fun sendDirectMessage(text: String) {
+        val trimmed = text.trim()
+        if (trimmed.isBlank() || _uiState.value.isStreaming) return
+
+        _uiState.value = _uiState.value.copy(inputText = "", isStreaming = true, error = null)
+
+        val userMessage = MessageEntity(
+            id = generateId(),
+            sessionId = resolvedSessionId,
+            role = "user",
+            content = trimmed,
+            senderName = "",
+            timestamp = System.currentTimeMillis(),
+        )
+
+        viewModelScope.launch {
+            chatSessionRepository.insertMessage(userMessage)
+            updateSessionMeta(trimmed)
+            callAi()
+        }
+    }
+
+    /** Send a voice message (recorded audio file) */
+    fun sendVoiceMessage(filePath: String, durationMs: Long) {
+        if (_uiState.value.isStreaming) return
+
+        val durationSec = (durationMs / 1000).coerceAtLeast(1)
+        val voiceContent = "[语音消息 ${durationSec}秒]"
+
+        val userMessage = MessageEntity(
+            id = generateId(),
+            sessionId = resolvedSessionId,
+            role = "user",
+            content = voiceContent,
+            senderName = "",
+            timestamp = System.currentTimeMillis(),
+            isVoice = true,
+            voiceUri = filePath,
+        )
+
+        _uiState.value = _uiState.value.copy(inputText = "", isStreaming = true, error = null)
+
+        viewModelScope.launch {
+            chatSessionRepository.insertMessage(userMessage)
+            updateSessionMeta(voiceContent)
+            callAi()
+        }
+    }
+
+    fun generateSuggestions() {
+        val state = _uiState.value
+        if (state.isSuggesting || state.isStreaming) return
+
+        _uiState.value = state.copy(isSuggesting = true, suggestions = emptyList())
+
+        viewModelScope.launch {
+            try {
+                val configId = state.modelConfigId
+                val config = if (configId.isNotBlank()) {
+                    modelConfigRepository.getConfigById(configId)
+                } else {
+                    modelConfigRepository.getDefaultConfig()
+                }
+                if (config == null) {
+                    _uiState.value = _uiState.value.copy(isSuggesting = false, error = "未配置模型")
+                    return@launch
+                }
+
+                val providerConfig = AiProviderConfig(
+                    providerId = config.provider,
+                    apiHost = config.baseUrl,
+                    apiKey = config.apiKey,
+                    model = config.modelName,
+                )
+
+                val history = mutableListOf<AiMessage>()
+                history.add(AiMessage(role = "system", content = "你是一个对话建议助手。根据当前对话内容，以用户的视角生成3句简短自然的回复建议。每句话用换行分隔，不要编号，不要加引号，不要解释。只输出3句建议的话。"))
+                // Add recent messages for context (last 10)
+                val recentMessages = state.messages.takeLast(10)
+                for (msg in recentMessages) {
+                    history.add(AiMessage(role = msg.role, content = msg.content))
+                }
+                history.add(AiMessage(role = "user", content = "请根据上面的对话，以用户的角度生成3句简短的回复建议。"))
+
+                val result = aiRepository.createChatCompletion(
+                    config = providerConfig,
+                    messages = history,
+                )
+
+                when (result) {
+                    is ApiResult.Success -> {
+                        val text = result.value.message.content.orEmpty()
+                        val lines = text.split("\n").map { it.trim() }.filter { it.isNotBlank() }.take(3)
+                        _uiState.value = _uiState.value.copy(
+                            isSuggesting = false,
+                            suggestions = lines,
+                        )
+                    }
+                    is ApiResult.HttpError -> {
+                        _uiState.value = _uiState.value.copy(
+                            isSuggesting = false,
+                            error = "HTTP ${result.statusCode}: ${result.message}",
+                        )
+                    }
+                    is ApiResult.NetworkError -> {
+                        _uiState.value = _uiState.value.copy(
+                            isSuggesting = false,
+                            error = "网络错误: ${result.message}",
+                        )
+                    }
+                    is ApiResult.UnexpectedError -> {
+                        _uiState.value = _uiState.value.copy(
+                            isSuggesting = false,
+                            error = result.message,
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isSuggesting = false,
+                    error = e.message ?: "生成建议失败",
+                )
+            }
+        }
+    }
+
+    fun selectSuggestion(text: String) {
+        _uiState.value = _uiState.value.copy(inputText = text, suggestions = emptyList())
+    }
+
+    fun clearSuggestions() {
+        _uiState.value = _uiState.value.copy(suggestions = emptyList())
     }
 
     fun sendMessage() {

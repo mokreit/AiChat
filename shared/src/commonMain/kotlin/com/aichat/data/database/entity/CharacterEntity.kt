@@ -23,6 +23,7 @@ data class CharacterEntity(
     @ColumnInfo(defaultValue = "") val voiceId: String = "",
     val backgroundImage: String = "",
     @ColumnInfo(defaultValue = "0") val backgroundDynamic: Boolean = false,
+    @ColumnInfo(defaultValue = "0.3") val backgroundAlpha: Float = 0.3f,
     @ColumnInfo(defaultValue = "") val userNickname: String = "",
     @ColumnInfo(defaultValue = "") val userAvatar: String = "",
     @ColumnInfo(defaultValue = "") val userDescription: String = "",

@@ -29,6 +29,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -36,6 +37,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -81,6 +83,7 @@ fun CharacterEditScreen(
     var voiceId by remember { mutableStateOf("") }
     var modelConfigId by remember { mutableStateOf("") }
     var voiceConfigId by remember { mutableStateOf("") }
+    var backgroundAlpha by remember { mutableFloatStateOf(0.3f) }
     var nameError by remember { mutableStateOf(false) }
     var originalCreatedAt by remember { mutableStateOf(0L) }
 
@@ -105,6 +108,7 @@ fun CharacterEditScreen(
                 voiceId = it.voiceId
                 modelConfigId = it.modelConfigId
                 voiceConfigId = it.voiceConfigId
+                backgroundAlpha = it.backgroundAlpha
                 originalCreatedAt = it.createdAt
             }
         }
@@ -227,7 +231,7 @@ fun CharacterEditScreen(
                             bitmap = bgBitmap!!,
                             contentDescription = null,
                             modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop,
+                            contentScale = ContentScale.Fit,
                         )
                     } else {
                         Text(
@@ -239,6 +243,40 @@ fun CharacterEditScreen(
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(s.backgroundImage, style = AiChatTypography.bodyLarge)
+            }
+
+            // Background alpha slider
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = "背景透明度：${"%.0f".format(backgroundAlpha * 100)}%",
+                    style = AiChatTypography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Slider(
+                        value = backgroundAlpha,
+                        onValueChange = { backgroundAlpha = it },
+                        valueRange = 0f..1f,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    OutlinedTextField(
+                        value = "%.0f".format(backgroundAlpha * 100),
+                        onValueChange = { str ->
+                            str.filter { it.isDigit() }.toIntOrNull()?.let { pct ->
+                                backgroundAlpha = (pct.coerceIn(0, 100) / 100f)
+                            }
+                        },
+                        modifier = Modifier.width(64.dp),
+                        singleLine = true,
+                        suffix = { Text("%", style = AiChatTypography.bodySmall) },
+                        textStyle = AiChatTypography.bodySmall,
+                    )
+                }
             }
 
             OutlinedTextField(
@@ -363,6 +401,7 @@ fun CharacterEditScreen(
                             name = name,
                             avatarUri = avatarUri,
                             backgroundImage = backgroundImage,
+                            backgroundAlpha = backgroundAlpha,
                             description = "",
                             personality = "",
                             scenario = "",

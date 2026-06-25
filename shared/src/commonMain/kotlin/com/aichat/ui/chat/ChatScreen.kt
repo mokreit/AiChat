@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -17,6 +18,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Fullscreen
+import androidx.compose.material.icons.filled.FullscreenExit
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.AlertDialog
@@ -35,6 +38,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -53,6 +57,7 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import com.aichat.data.character.CharacterRepository
+import com.aichat.data.model.ModelConfigRepository
 import com.aichat.design.AiChatTypography
 import com.aichat.design.ChatBubble
 import com.aichat.design.ChatInputField
@@ -137,7 +142,14 @@ fun ChatScreen(
     val s = strings()
     val scope = rememberCoroutineScope()
     var bgImageUrl by remember { mutableStateOf("") }
+    var bgAlpha by remember { mutableFloatStateOf(0.3f) }
     var characterAvatarUri by remember { mutableStateOf("") }
+    var halfScreenMode by remember { mutableStateOf(false) }
+
+    val audioRecorder = com.aichat.platform.rememberAudioRecorder()
+    var isVoiceMode by remember { mutableStateOf(false) }
+    var voiceError by remember { mutableStateOf<String?>(null) }
+    val modelConfigRepository = koinInject<com.aichat.data.model.ModelConfigRepository>()
 
     val settingsRepository = koinInject<com.aichat.data.settings.SettingsRepository>()
     val userAvatarUri by settingsRepository.avatar.collectAsState(initial = "")
@@ -145,6 +157,7 @@ fun ChatScreen(
     LaunchedEffect(characterId) {
         val char = characterRepository.getCharacterById(characterId)
         bgImageUrl = char?.backgroundImage ?: ""
+        bgAlpha = char?.backgroundAlpha ?: 0.3f
         characterAvatarUri = char?.avatarUri ?: ""
     }
 
@@ -154,10 +167,9 @@ fun ChatScreen(
     var exportSuccess by remember { mutableStateOf<Boolean?>(null) }
 
     LaunchedEffect(uiState.messages.size, uiState.streamingContent) {
-        val totalItems = uiState.messages.size +
-            (if (uiState.isStreaming && uiState.streamingContent.isNotBlank()) 1 else 0)
-        if (totalItems > 0) {
-            listState.animateScrollToItem(totalItems - 1)
+        // With reverseLayout, index 0 = newest message at bottom
+        if (uiState.messages.isNotEmpty() || uiState.streamingContent.isNotBlank()) {
+            listState.animateScrollToItem(0)
         }
     }
 
@@ -315,16 +327,18 @@ fun ChatScreen(
                         contentDescription = null,
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop,
-                        alpha = 0.3f,
+                        alpha = bgAlpha,
                     )
                 }
-                // Semi-transparent overlay
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .alpha(0.35f)
-                        .background(MaterialTheme.colorScheme.surface),
-                )
+                // Semi-transparent overlay - only show when background is not fully opaque
+                if (bgAlpha < 1f) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .alpha(0.35f * (1f - bgAlpha))
+                            .background(MaterialTheme.colorScheme.surface),
+                    )
+                }
             }
 
             Column(
@@ -333,10 +347,42 @@ fun ChatScreen(
             LazyColumn(
                 state = listState,
                 modifier = Modifier.weight(1f),
+                reverseLayout = true,
                 verticalArrangement = Arrangement.spacedBy(4.dp),
                 contentPadding = PaddingValues(vertical = 8.dp),
             ) {
-                items(uiState.messages, key = { it.id }) { message ->
+                val messages = if (halfScreenMode && uiState.messages.isNotEmpty() && !uiState.isStreaming) {
+                    listOf(uiState.messages.last())
+                } else {
+                    uiState.messages
+                }
+
+                // reverseLayout=true renders bottom-to-top, so reverse the list
+                val displayMessages = messages.reversed()
+
+                // Streaming content (show first = appears at bottom)
+                if (uiState.isStreaming && uiState.streamingContent.isBlank()) {
+                    item(key = "loading") {
+                        ChatBubble(
+                            text = "...",
+                            isUser = false,
+                            avatarName = uiState.characterName,
+                            avatarUri = characterAvatarUri,
+                        )
+                    }
+                }
+                if (uiState.isStreaming && uiState.streamingContent.isNotBlank()) {
+                    item(key = "streaming") {
+                        ChatBubble(
+                            text = uiState.streamingContent,
+                            isUser = false,
+                            avatarName = uiState.characterName,
+                            avatarUri = characterAvatarUri,
+                        )
+                    }
+                }
+
+                items(displayMessages, key = { it.id }) { message ->
                     ChatBubble(
                         text = message.content,
                         isUser = message.role == "user",
@@ -354,30 +400,6 @@ fun ChatScreen(
                         ),
                     )
                 }
-
-                // Streaming content
-                if (uiState.isStreaming && uiState.streamingContent.isNotBlank()) {
-                    item(key = "streaming") {
-                        ChatBubble(
-                            text = uiState.streamingContent,
-                            isUser = false,
-                            avatarName = uiState.characterName,
-                            avatarUri = characterAvatarUri,
-                        )
-                    }
-                }
-
-                // Loading indicator (with avatar, same style as streaming bubble)
-                if (uiState.isStreaming && uiState.streamingContent.isBlank()) {
-                    item(key = "loading") {
-                        ChatBubble(
-                            text = "...",
-                            isUser = false,
-                            avatarName = uiState.characterName,
-                            avatarUri = characterAvatarUri,
-                        )
-                    }
-                }
             }
 
             if (uiState.error != null) {
@@ -389,6 +411,57 @@ fun ChatScreen(
                 )
             }
 
+            // Half/full screen toggle button
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp),
+                horizontalArrangement = Arrangement.End,
+            ) {
+                IconButton(
+                    onClick = { halfScreenMode = !halfScreenMode },
+                    modifier = Modifier.size(36.dp),
+                ) {
+                    Icon(
+                        imageVector = if (halfScreenMode) Icons.Default.Fullscreen else Icons.Default.FullscreenExit,
+                        contentDescription = if (halfScreenMode) "全屏" else "半屏",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
+            if (voiceError != null) {
+                Text(
+                    text = voiceError ?: "",
+                    color = MaterialTheme.colorScheme.error,
+                    style = AiChatTypography.bodySmall,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                )
+            }
+
+            if (uiState.suggestions.isNotEmpty()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    for (suggestion in uiState.suggestions) {
+                        androidx.compose.material3.SuggestionChip(
+                            onClick = { viewModel.selectSuggestion(suggestion) },
+                            label = {
+                                Text(
+                                    text = suggestion,
+                                    style = AiChatTypography.bodySmall,
+                                    maxLines = 2,
+                                )
+                            },
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
+            }
+
             ChatInputField(
                 value = uiState.inputText,
                 onValueChange = viewModel::updateInput,
@@ -396,6 +469,31 @@ fun ChatScreen(
                 isSending = uiState.isStreaming,
                 onStop = if (uiState.isStreaming) viewModel::stopGenerating else null,
                 modifier = Modifier.padding(12.dp),
+                onSuggest = { viewModel.generateSuggestions() },
+                isSuggesting = uiState.isSuggesting,
+                onVoiceToggle = {
+                    isVoiceMode = !isVoiceMode
+                },
+                isVoiceMode = isVoiceMode,
+                onVoicePressStart = {
+                    voiceError = null
+                    audioRecorder.startRecording(
+                        onError = { err ->
+                            voiceError = err
+                        }
+                    )
+                },
+                onVoicePressEnd = {
+                    val result = audioRecorder.stopRecording(cancel = false)
+                    if (result != null) {
+                        viewModel.sendVoiceMessage(result.filePath, result.durationMs)
+                    } else {
+                        voiceError = "录音时间太短"
+                    }
+                },
+                onVoicePressCancel = {
+                    audioRecorder.stopRecording(cancel = true)
+                },
             )
             }
         }

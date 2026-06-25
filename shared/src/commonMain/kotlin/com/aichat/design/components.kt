@@ -4,6 +4,7 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,6 +23,10 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Keyboard
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -38,6 +43,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import com.aichat.design.strings
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
@@ -246,45 +252,158 @@ fun ChatInputField(
     onStop: (() -> Unit)? = null,
     placeholder: String? = null,
     modifier: Modifier = Modifier,
+    onVoiceToggle: (() -> Unit)? = null,
+    isVoiceMode: Boolean = false,
+    onVoicePressStart: (() -> Unit)? = null,
+    onVoicePressEnd: (() -> Unit)? = null,
+    onVoicePressCancel: (() -> Unit)? = null,
+    onSuggest: (() -> Unit)? = null,
+    isSuggesting: Boolean = false,
 ) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
-        modifier = modifier.fillMaxWidth(),
-        placeholder = { Text(placeholder ?: strings().typeMessage, style = AiChatTypography.bodyMedium) },
-        maxLines = 4,
-        shape = RoundedCornerShape(24.dp),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = MaterialTheme.colorScheme.tertiary,
-            unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-        ),
-        trailingIcon = {
-            if (isSending && onStop != null) {
-                Button(
-                    onClick = onStop,
-                    shape = CircleShape,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error,
-                    ),
-                    modifier = Modifier.padding(4.dp),
-                ) {
-                    Text("\u25A0", fontSize = androidx.compose.ui.unit.TextUnit(14f, androidx.compose.ui.unit.TextUnitType.Sp))
+    Column(modifier = modifier.fillMaxWidth()) {
+        if (isVoiceMode) {
+            // Voice mode: long-press to talk, drag up to cancel
+            var dragOffsetY by remember { mutableStateOf(0f) }
+            var isRecordingActive by remember { mutableStateOf(false) }
+            var isPressing by remember { mutableStateOf(false) }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                // Switch back to keyboard
+                IconButton(onClick = onVoiceToggle ?: {}) {
+                    Icon(
+                        imageVector = Icons.Filled.Keyboard,
+                        contentDescription = "Keyboard",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
-            } else {
-                Button(
-                    onClick = onSend,
-                    enabled = value.isNotBlank() && !isSending,
-                    shape = CircleShape,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.tertiary,
-                    ),
-                    modifier = Modifier.padding(4.dp),
+                // Hold-to-talk button
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp)
+                        .clip(RoundedCornerShape(24.dp))
+                        .background(
+                            if (isRecordingActive) MaterialTheme.colorScheme.error.copy(alpha = 0.25f)
+                            else MaterialTheme.colorScheme.surfaceVariant,
+                        )
+                        .pointerInput(Unit) {
+                            detectDragGesturesAfterLongPress(
+                                onDragStart = {
+                                    isPressing = true
+                                    dragOffsetY = 0f
+                                    isRecordingActive = true
+                                    onVoicePressStart?.invoke()
+                                },
+                                onDragEnd = {
+                                    isPressing = false
+                                    if (isRecordingActive) {
+                                        isRecordingActive = false
+                                        if (dragOffsetY < -160f) {
+                                            onVoicePressCancel?.invoke()
+                                        } else {
+                                            onVoicePressEnd?.invoke()
+                                        }
+                                    }
+                                },
+                                onDragCancel = {
+                                    isPressing = false
+                                    if (isRecordingActive) {
+                                        isRecordingActive = false
+                                        onVoicePressCancel?.invoke()
+                                    }
+                                },
+                                onDrag = { change, dragAmount ->
+                                    dragOffsetY += dragAmount.y
+                                }
+                            )
+                        },
+                    contentAlignment = Alignment.Center,
                 ) {
-                    Text("\u27A4", fontSize = androidx.compose.ui.unit.TextUnit(16f, androidx.compose.ui.unit.TextUnitType.Sp))
+                    Text(
+                        text = if (isRecordingActive) {
+                            if (dragOffsetY < -160f) "松开取消" else "松开发送"
+                        } else "按住说话",
+                        style = AiChatTypography.bodyLarge,
+                        color = if (isRecordingActive) MaterialTheme.colorScheme.error
+                                else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
-        },
-    )
+        } else {
+            // Normal text input mode
+            OutlinedTextField(
+                value = value,
+                onValueChange = onValueChange,
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = { Text(placeholder ?: strings().typeMessage, style = AiChatTypography.bodyMedium) },
+                maxLines = 4,
+                shape = RoundedCornerShape(24.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.tertiary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                ),
+                trailingIcon = {
+                    Row {
+                        // Suggest reply button
+                        if (onSuggest != null) {
+                            IconButton(onClick = onSuggest, enabled = !isSuggesting && !isSending) {
+                                if (isSuggesting) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(20.dp),
+                                        strokeWidth = 2.dp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Filled.AutoAwesome,
+                                        contentDescription = "推荐回复",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+                        }
+                        // Voice toggle button (to the left of send)
+                        if (onVoiceToggle != null) {
+                            IconButton(onClick = onVoiceToggle) {
+                                Icon(
+                                    imageVector = Icons.Filled.Mic,
+                                    contentDescription = "Voice",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                        // Send / Stop button
+                        if (isSending && onStop != null) {
+                            Button(
+                                onClick = onStop,
+                                shape = CircleShape,
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.error,
+                                ),
+                                modifier = Modifier.padding(4.dp),
+                            ) {
+                                Text("\u25A0", fontSize = androidx.compose.ui.unit.TextUnit(14f, androidx.compose.ui.unit.TextUnitType.Sp))
+                            }
+                        } else {
+                            Button(
+                                onClick = onSend,
+                                enabled = value.isNotBlank() && !isSending,
+                                shape = CircleShape,
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.tertiary,
+                                ),
+                                modifier = Modifier.padding(4.dp),
+                            ) {
+                                Text("\u27A4", fontSize = androidx.compose.ui.unit.TextUnit(16f, androidx.compose.ui.unit.TextUnitType.Sp))
+                            }
+                        }
+                    }
+                },
+            )
+        }
+    }
 }
 
 // Content segment parsing for dialogue/action/meta (like original project)

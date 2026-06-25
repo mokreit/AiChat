@@ -26,7 +26,7 @@ import com.aichat.data.database.entity.VoiceConfigEntity
         ModelConfigEntity::class,
         VoiceConfigEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = true,
 )
 @ConstructedBy(AppDatabaseConstructor::class)

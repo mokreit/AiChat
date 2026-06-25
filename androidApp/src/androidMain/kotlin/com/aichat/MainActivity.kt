@@ -14,6 +14,7 @@ import com.aichat.platform.AndroidActivityHelper
 
 class MainActivity : ComponentActivity() {
     private lateinit var imagePickerLauncher: ActivityResultLauncher<String>
+    private lateinit var audioPermissionLauncher: ActivityResultLauncher<String>
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -39,8 +40,20 @@ class MainActivity : ComponentActivity() {
             AndroidActivityHelper.pendingCallback = null
         }
 
+        // Register audio permission launcher
+        audioPermissionLauncher = registerForActivityResult(
+            ActivityResultContracts.RequestPermission()
+        ) { granted ->
+            AndroidActivityHelper.audioPermissionCallback?.invoke(granted)
+            AndroidActivityHelper.audioPermissionCallback = null
+        }
+
         // Set the launcher lambda for shared module to use
         AndroidActivityHelper.launchImagePicker = { imagePickerLauncher.launch("image/*") }
+        AndroidActivityHelper.requestAudioPermission = { callback ->
+            AndroidActivityHelper.audioPermissionCallback = callback
+            audioPermissionLauncher.launch(android.Manifest.permission.RECORD_AUDIO)
+        }
 
         enableEdgeToEdge()
         setContent {

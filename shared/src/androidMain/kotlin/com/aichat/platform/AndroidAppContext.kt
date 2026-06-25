@@ -26,4 +26,8 @@ object AndroidActivityHelper {
     // Lambda that launches image picker (set by Activity)
     var launchImagePicker: (() -> Unit)? = null
     var pendingCallback: ((String?) -> Unit)? = null
+
+    // Lambda that requests audio permission (set by Activity)
+    var requestAudioPermission: ((callback: (Boolean) -> Unit) -> Unit)? = null
+    var audioPermissionCallback: ((Boolean) -> Unit)? = null
 }
