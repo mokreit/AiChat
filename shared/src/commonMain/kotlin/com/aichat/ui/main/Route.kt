@@ -51,4 +51,7 @@ sealed interface Route {
 
     @Serializable
     data class StoryDetail(val storyId: String) : Route
+
+    @Serializable
+    data class StoryChat(val storyId: String) : Route
 }

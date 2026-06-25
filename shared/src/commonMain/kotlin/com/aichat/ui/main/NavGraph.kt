@@ -17,6 +17,7 @@ import com.aichat.ui.settings.SettingsScreen
 import com.aichat.ui.settings.TextModelSettingsScreen
 import com.aichat.ui.settings.VoiceModelSettingsScreen
 import com.aichat.ui.settings.VoiceSettingsScreen
+import com.aichat.ui.story.StoryChatScreen
 import com.aichat.ui.story.StoryDetailScreen
 import com.aichat.ui.story.StoryEditScreen
 import com.aichat.ui.story.StoryListScreen
@@ -121,6 +122,14 @@ fun AppNavHost(navController: NavHostController) {
                 storyId = route.storyId,
                 onBack = { navController.popBackStack() },
                 onEdit = { id -> navController.navigate(Route.StoryEdit(id)) },
+                onStartStoryChat = { id -> navController.navigate(Route.StoryChat(id)) },
+            )
+        }
+        composable<Route.StoryChat> { backStackEntry ->
+            val route = backStackEntry.toRoute<Route.StoryChat>()
+            StoryChatScreen(
+                storyId = route.storyId,
+                onBack = { navController.popBackStack() },
             )
         }
         composable<Route.StoryEdit> { backStackEntry ->
