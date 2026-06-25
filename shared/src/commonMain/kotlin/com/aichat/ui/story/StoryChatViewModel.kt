@@ -11,7 +11,6 @@ import com.aichat.data.character.CharacterRepository
 import com.aichat.data.database.entity.CharacterEntity
 import com.aichat.data.database.entity.ChatSessionEntity
 import com.aichat.data.database.entity.MessageEntity
-import com.aichat.data.database.entity.StoryEntity
 import com.aichat.data.model.ModelConfigRepository
 import com.aichat.data.settings.SettingsRepository
 import com.aichat.data.story.StoryRepository
@@ -42,76 +41,47 @@ data class StoryChatUiState(
     val inputText: String = "",
     val isStreaming: Boolean = false,
     val streamingContent: String = "",
-    val streamingSenderName: String = "",  // which character is currently speaking
+    /** Streaming segments parsed in real-time (for story multi-character display) */
+    val streamingSegments: List<StorySegment> = emptyList(),
     val error: String? = null,
 )
 
-/**
- * Parse AI response into individual character messages.
- * Format expected: [CharacterName]: "dialogue" or [CharacterName]: dialogue
- * Also supports *action* as narrator text.
- */
-fun parseStoryMessages(rawContent: String, sessionId: String, baseTimestamp: Long): List<MessageEntity> {
-    val messages = mutableListOf<MessageEntity>()
-    val lines = rawContent.split("\n").filter { it.isNotBlank() }
-    var msgIndex = 0
+data class StorySegment(
+    val senderName: String,
+    val content: String,
+)
 
-    for (line in lines) {
-        val trimmed = line.trim()
-        // Match pattern: CharacterName: "content" or CharacterName: content
-        val nameColonMatch = Regex("^([\\p{L}\\p{N}_\\s]+?)[:：]\\s*(.+)").find(trimmed)
-        if (nameColonMatch != null) {
-            val name = nameColonMatch.groupValues[1].trim()
-            var content = nameColonMatch.groupValues[2].trim()
-            // Strip surrounding quotes
-            if ((content.startsWith("\"") && content.endsWith("\"")) ||
-                (content.startsWith("\u201C") && content.endsWith("\u201D")) ||
-                (content.startsWith("「") && content.endsWith("」"))
-            ) {
-                content = content.substring(1, content.length - 1).trim()
-            }
-            if (content.isNotBlank()) {
-                messages.add(
-                    MessageEntity(
-                        id = "${java.util.UUID.randomUUID()}_$msgIndex",
-                        sessionId = sessionId,
-                        role = "assistant",
-                        content = content,
-                        senderName = name,
-                        timestamp = baseTimestamp + msgIndex,
-                    )
-                )
-                msgIndex++
-            }
-        } else if (trimmed.startsWith("*") && trimmed.endsWith("*") && trimmed.length > 2) {
-            // Narrator action: *something happened*
-            messages.add(
-                MessageEntity(
-                    id = "${java.util.UUID.randomUUID()}_$msgIndex",
-                    sessionId = sessionId,
-                    role = "assistant",
-                    content = trimmed,
-                    senderName = "",
-                    timestamp = baseTimestamp + msgIndex,
-                )
-            )
-            msgIndex++
-        } else if (trimmed.isNotBlank()) {
-            // Narrator text
-            messages.add(
-                MessageEntity(
-                    id = "${java.util.UUID.randomUUID()}_$msgIndex",
-                    sessionId = sessionId,
-                    role = "assistant",
-                    content = trimmed,
-                    senderName = "",
-                    timestamp = baseTimestamp + msgIndex,
-                )
-            )
-            msgIndex++
+/**
+ * Parse AI response into character segments using 【角色名】 format.
+ * Matches 【CharacterName】content pairs.
+ */
+fun parseStorySegments(rawContent: String): List<StorySegment> {
+    val results = mutableListOf<StorySegment>()
+    val regex = Regex("【(.+?)】([\\s\\S]*?)(?=【.+?】|$)")
+    val matches = regex.findAll(rawContent)
+    for (match in matches) {
+        val text = match.groupValues[2].trim()
+        if (text.isNotBlank()) {
+            results.add(StorySegment(senderName = match.groupValues[1], content = text))
         }
     }
-    return messages
+    return results
+}
+
+/**
+ * Convert parsed segments into MessageEntity list.
+ */
+fun segmentsToMessages(segments: List<StorySegment>, sessionId: String, baseTimestamp: Long): List<MessageEntity> {
+    return segments.mapIndexed { index, seg ->
+        MessageEntity(
+            id = "${java.util.UUID.randomUUID()}_$index",
+            sessionId = sessionId,
+            role = "assistant",
+            content = seg.content,
+            senderName = seg.senderName,
+            timestamp = baseTimestamp + index,
+        )
+    }
 }
 
 class StoryChatViewModel(
@@ -162,52 +132,49 @@ class StoryChatViewModel(
                 }
             }
 
-            // Build system prompt for multi-character turn-based dialogue
+            // Build system prompt matching original format
             val sb = mutableListOf<String>()
             if (story.systemPrompt.isNotBlank()) {
                 sb.add(story.systemPrompt)
             }
-            if (story.description.isNotBlank()) {
-                sb.add("故事背景: ${story.description}")
-            }
 
-            // Character descriptions
-            sb.add("=== 角色列表 ===")
+            // Character descriptions in 【角色名】 format
             for (char in characterEntities) {
-                val parts = mutableListOf("${char.name}:")
-                if (char.description.isNotBlank()) parts.add("描述: ${char.description}")
-                if (char.personality.isNotBlank()) parts.add("性格: ${char.personality}")
-                if (char.scenario.isNotBlank()) parts.add("场景: ${char.scenario}")
-                if (char.systemPrompt.isNotBlank()) parts.add(char.systemPrompt)
-                sb.add(parts.joinToString(" "))
+                val parts = mutableListOf("【${char.name}】")
+                if (char.description.isNotBlank()) parts.add("描述：${char.description}")
+                parts.add("性格与行为：${char.systemPrompt.ifBlank { char.personality }}")
+                sb.add(parts.joinToString("\n"))
             }
 
-            val userNick = story.userNickname.ifBlank { "我" }
+            val userNick = story.userNickname.ifBlank { "用户" }
             if (story.userJoined) {
-                val userParts = mutableListOf("用户扮演的角色名为: $userNick")
+                val userParts = mutableListOf("【${userNick}（用户）】")
                 if (story.userDescription.isNotBlank()) {
-                    userParts.add("用户角色描述: ${story.userDescription}")
+                    userParts.add("描述：${story.userDescription}")
+                } else {
+                    userParts.add("用户是故事的参与者，可以自由行动和对话。")
                 }
-                sb.add(userParts.joinToString(" "))
+                sb.add(userParts.joinToString("\n"))
             }
 
+            // Output format instructions (matching original)
             sb.add(
-                """=== 对话规则 ===
-你是一个互动故事叙述者。请按以下规则生成回复：
-1. 每个角色依次说话，格式为：角色名: "对话内容"
-2. 角色之间轮流发言，每个角色说一句话或一段话
-3. 每个角色说话要符合自己的性格和设定
-4. 场景描述和动作用 *动作描述* 的格式
-5. 每次回复包含 2-4 个角色的发言
-6. 用户角色 ($userNick) 的发言由用户自己输入，你不要代替用户说话
-7. 只生成NPC角色的对话，不要生成 $userNick 的对话
-8. 对话要自然流畅，推动故事发展"""
+                """
+输出格式要求：
+- 每个角色发言用 【角色名】对话内容 的格式
+- 根据剧情自然发展，决定哪些角色需要说话，哪些角色保持沉默
+- 不要每次都让所有角色发言，只在剧情需要时让相关角色说话
+- 有时一个角色回复就够了，有时多个角色互动更合适，由剧情决定
+- 当用户对某个角色说话时，其他角色可以根据场景自然地插话或做出反应，但不是必须的
+- 动作或场景描述用 *动作描述* 包裹
+- 你是故事的导演，负责推动剧情自然发展
+- 用户的角色是 $userNick，不要代替用户说话""".trimIndent()
             )
 
             _uiState.value = _uiState.value.copy(
                 storyTitle = story.title,
                 storyDescription = story.description,
-                systemPrompt = sb.joinToString("\n\n"),
+                systemPrompt = sb.joinToString("\n"),
                 backgroundImage = story.backgroundImage,
                 userNickname = userNick,
                 userJoined = story.userJoined,
@@ -279,7 +246,7 @@ class StoryChatViewModel(
         _uiState.value = _uiState.value.copy(
             isStreaming = false,
             streamingContent = "",
-            streamingSenderName = "",
+            streamingSegments = emptyList(),
         )
     }
 
@@ -299,19 +266,22 @@ class StoryChatViewModel(
 
     private fun saveStreamedMessages(content: String) {
         viewModelScope.launch {
-            val parsed = parseStoryMessages(content, resolvedSessionId, System.currentTimeMillis())
-            if (parsed.isNotEmpty()) {
-                for (msg in parsed) {
+            val segments = parseStorySegments(content)
+            if (segments.isNotEmpty()) {
+                val msgs = segmentsToMessages(segments, resolvedSessionId, System.currentTimeMillis())
+                for (msg in msgs) {
                     chatSessionRepository.insertMessage(msg)
                 }
             } else {
-                // Fallback: save as single narrator message
+                // Fallback: no 【】 format found, save as single narrator message
+                // Try first character as default sender
+                val firstName = _uiState.value.characters.firstOrNull()?.name ?: "旁白"
                 val msg = MessageEntity(
                     id = generateId(),
                     sessionId = resolvedSessionId,
                     role = "assistant",
                     content = content,
-                    senderName = "",
+                    senderName = firstName,
                     timestamp = System.currentTimeMillis(),
                 )
                 chatSessionRepository.insertMessage(msg)
@@ -346,8 +316,13 @@ class StoryChatViewModel(
             if (sys.isNotBlank()) {
                 history.add(AiMessage(role = "system", content = sys))
             }
+            // Build history - for story messages with senderName, format as 【senderName】content
             history.addAll(_uiState.value.messages.map {
-                AiMessage(role = it.role, content = it.content)
+                if (it.role == "assistant" && it.senderName.isNotBlank()) {
+                    AiMessage(role = "assistant", content = "【${it.senderName}】${it.content}")
+                } else {
+                    AiMessage(role = it.role, content = it.content)
+                }
             })
 
             streamingJob = viewModelScope.launch {
@@ -361,12 +336,12 @@ class StoryChatViewModel(
                             val current = _uiState.value.streamingContent
                             val newContent = current + chunk.contentDelta
 
-                            // Track which character is currently speaking (last "Name:" seen)
-                            val currentSpeaker = detectCurrentSpeaker(newContent)
+                            // Parse segments in real-time for display
+                            val segments = parseStorySegments(newContent)
 
                             _uiState.value = _uiState.value.copy(
                                 streamingContent = newContent,
-                                streamingSenderName = currentSpeaker,
+                                streamingSegments = segments,
                             )
 
                             if (chunk.finishReason == "stop" || chunk.finishReason == "length") {
@@ -374,7 +349,7 @@ class StoryChatViewModel(
                                 _uiState.value = _uiState.value.copy(
                                     isStreaming = false,
                                     streamingContent = "",
-                                    streamingSenderName = "",
+                                    streamingSegments = emptyList(),
                                 )
                                 streamingJob = null
                             }
@@ -384,7 +359,7 @@ class StoryChatViewModel(
                                 isStreaming = false,
                                 error = "HTTP ${result.statusCode}: ${result.message}",
                                 streamingContent = "",
-                                streamingSenderName = "",
+                                streamingSegments = emptyList(),
                             )
                             streamingJob = null
                         }
@@ -393,7 +368,7 @@ class StoryChatViewModel(
                                 isStreaming = false,
                                 error = "网络错误: ${result.message}",
                                 streamingContent = "",
-                                streamingSenderName = "",
+                                streamingSegments = emptyList(),
                             )
                             streamingJob = null
                         }
@@ -402,7 +377,7 @@ class StoryChatViewModel(
                                 isStreaming = false,
                                 error = result.message,
                                 streamingContent = "",
-                                streamingSenderName = "",
+                                streamingSegments = emptyList(),
                             )
                             streamingJob = null
                         }
@@ -414,15 +389,9 @@ class StoryChatViewModel(
                 isStreaming = false,
                 error = e.message ?: "Unknown error",
                 streamingContent = "",
-                streamingSenderName = "",
+                streamingSegments = emptyList(),
             )
         }
-    }
-
-    /** Detect which character name is the last speaker in the streaming content */
-    private fun detectCurrentSpeaker(content: String): String {
-        val matches = Regex("([\\p{L}\\p{N}_\\s]+?)[:：]\\s*[\"\\u201C「*]").findAll(content)
-        return matches.lastOrNull()?.groupValues?.getOrNull(1)?.trim() ?: ""
     }
 
     override fun onCleared() {

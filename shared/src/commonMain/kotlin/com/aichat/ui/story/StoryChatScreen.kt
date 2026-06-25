@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -57,9 +56,11 @@ fun StoryChatScreen(
     val listState = rememberLazyListState()
     val s = strings()
 
-    LaunchedEffect(uiState.messages.size, uiState.streamingContent) {
-        val total = uiState.messages.size +
-            (if (uiState.isStreaming && uiState.streamingContent.isNotBlank()) 1 else 0)
+    LaunchedEffect(uiState.messages.size, uiState.streamingSegments.size, uiState.streamingContent) {
+        val streamingCount = if (uiState.isStreaming) {
+            if (uiState.streamingSegments.isNotEmpty()) uiState.streamingSegments.size else 1
+        } else 0
+        val total = uiState.messages.size + streamingCount
         if (total > 0) listState.animateScrollToItem(total - 1)
     }
 
@@ -162,16 +163,31 @@ fun StoryChatScreen(
                         )
                     }
 
-                    // Streaming content with current speaker's avatar
-                    if (uiState.isStreaming && uiState.streamingContent.isNotBlank()) {
-                        item(key = "streaming") {
-                            val streamAvatarUri = viewModel.getAvatarForSender(uiState.streamingSenderName)
-                            val streamDisplayName = uiState.streamingSenderName.ifBlank { "旁白" }
+                    // Streaming: show segments in real-time (each character gets own bubble)
+                    if (uiState.isStreaming && uiState.streamingSegments.isNotEmpty()) {
+                        items(
+                            items = uiState.streamingSegments,
+                            key = { "streaming-${it.senderName}-${it.content.take(20)}" },
+                        ) { segment ->
+                            val avatarUri = viewModel.getAvatarForSender(segment.senderName)
+                            ChatBubble(
+                                text = segment.content,
+                                isUser = false,
+                                avatarName = segment.senderName,
+                                avatarUri = avatarUri,
+                            )
+                        }
+                    }
+
+                    // Streaming fallback: raw text while no segments parsed yet
+                    if (uiState.isStreaming && uiState.streamingContent.isNotBlank() && uiState.streamingSegments.isEmpty()) {
+                        item(key = "streaming-raw") {
+                            val firstChar = uiState.characters.firstOrNull()
                             ChatBubble(
                                 text = uiState.streamingContent,
                                 isUser = false,
-                                avatarName = streamDisplayName,
-                                avatarUri = streamAvatarUri,
+                                avatarName = firstChar?.name ?: "旁白",
+                                avatarUri = firstChar?.avatarUri ?: "",
                             )
                         }
                     }
@@ -179,11 +195,12 @@ fun StoryChatScreen(
                     // Loading indicator
                     if (uiState.isStreaming && uiState.streamingContent.isBlank()) {
                         item(key = "loading") {
+                            val firstChar = uiState.characters.firstOrNull()
                             ChatBubble(
                                 text = "...",
                                 isUser = false,
-                                avatarName = uiState.characters.firstOrNull()?.name ?: "旁白",
-                                avatarUri = uiState.characters.firstOrNull()?.avatarUri ?: "",
+                                avatarName = firstChar?.name ?: "旁白",
+                                avatarUri = firstChar?.avatarUri ?: "",
                             )
                         }
                     }
