@@ -85,6 +85,9 @@ sealed interface AppStrings {
     val description: String
     val requiredField: String
 
+    // Story - character selection
+    val participatingCharacters: String
+
     // Chat actions
     val copy: String
     val regenerate: String
@@ -157,6 +160,7 @@ object ZhStrings : AppStrings {
     override val addCharactersHint = "在设置中添加角色"
     override val personality = "性格"
     override val scenario = "场景"
+    override val participatingCharacters = "参与角色"
     override val firstMessage = "开场白"
     override val voiceDesign = "语音设计"
     override val typeMessage = "输入消息..."
@@ -278,6 +282,7 @@ object EnStrings : AppStrings {
     override val addCharactersHint = "Add characters in Settings"
     override val personality = "Personality"
     override val scenario = "Scenario"
+    override val participatingCharacters = "Participants"
     override val firstMessage = "First Message"
     override val voiceDesign = "Voice Design"
     override val typeMessage = "Type a message..."
