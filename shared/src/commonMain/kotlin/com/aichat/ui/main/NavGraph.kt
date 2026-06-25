@@ -38,6 +38,7 @@ fun AppNavHost(navController: NavHostController) {
         }
         composable<Route.SessionList> {
             SessionListScreen(
+                onBack = { navController.popBackStack() },
                 onSessionClick = { sessionId, characterId ->
                     navController.navigate(Route.Chat(characterId = characterId, sessionId = sessionId))
                 },
