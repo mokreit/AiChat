@@ -15,20 +15,18 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.aichat.design.strings
 import com.aichat.platform.cropImageBitmap
+import kotlin.math.abs
 import kotlin.math.min
 import kotlin.math.roundToInt
 
-/**
- * Image crop dialog.
- * - circularPreview=true: circular frame, user drags image to position, slider to zoom (for avatars)
- * - circularPreview=false: rectangular frame with draggable corners and moveable interior (for backgrounds)
- */
 @Composable
 fun ImageCropDialog(
     bitmap: ImageBitmap,
@@ -74,6 +72,46 @@ private fun CircularCropDialog(
                         .clip(CircleShape)
                         .background(Color(0xFFF0F0F0))
                         .clipToBounds()
+                        // Mouse scroll wheel zoom
+                        .pointerInput(Unit) {
+                            awaitPointerEventScope {
+                                while (true) {
+                                    val event = awaitPointerEvent(PointerEventPass.Main)
+                                    if (event.type == PointerEventType.Scroll) {
+                                        val scrollDelta = event.changes.firstOrNull()?.scrollDelta
+                                        if (scrollDelta != null) {
+                                            zoom = (zoom - scrollDelta.y * 5f).coerceIn(30f, 300f)
+                                            event.changes.forEach { it.consume() }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        // Pinch-to-zoom + drag for touch screens
+                        .pointerInput(Unit) {
+                            awaitPointerEventScope {
+                                var lastDist = 0f
+                                while (true) {
+                                    val event = awaitPointerEvent(PointerEventPass.Main)
+                                    val pressed = event.changes.filter { it.pressed }
+                                    if (pressed.size >= 2) {
+                                        // Pinch gesture
+                                        val p0 = pressed[0].position
+                                        val p1 = pressed[1].position
+                                        val dist = (p1 - p0).getDistance()
+                                        if (lastDist > 0f) {
+                                            val delta = (dist - lastDist) * 0.3f
+                                            zoom = (zoom + delta).coerceIn(30f, 300f)
+                                        }
+                                        lastDist = dist
+                                        pressed.forEach { it.consume() }
+                                    } else {
+                                        lastDist = 0f
+                                    }
+                                }
+                            }
+                        }
+                        // Single-finger drag to move image
                         .pointerInput(Unit) {
                             detectDragGestures { change, dragAmount ->
                                 change.consume()
@@ -155,18 +193,13 @@ private fun RectCropDialog(
     val imgW = bitmap.width.toFloat()
     val imgH = bitmap.height.toFloat()
     val canvasW = 320f
-    val canvasH = canvasW * (imgH / imgW)  // maintain aspect ratio
+    val canvasH = canvasW * (imgH / imgW)
 
-    // Fit scale: how much to scale image to fill canvas
-    val fitScale = min(canvasW / imgW, canvasH / imgH)
-
-    // Crop region in normalized [0..1] relative to image
     var cropLeft by remember { mutableStateOf(0.05f) }
     var cropTop by remember { mutableStateOf(0.05f) }
     var cropRight by remember { mutableStateOf(0.95f) }
     var cropBottom by remember { mutableStateOf(0.95f) }
 
-    // What's being dragged
     var dragType by remember { mutableStateOf<String?>(null) }
 
     AlertDialog(
@@ -179,6 +212,70 @@ private fun RectCropDialog(
                         .width(canvasW.dp)
                         .height(canvasH.dp)
                         .background(Color(0xFFF0F0F0))
+                        // Mouse scroll wheel zoom (resize crop region from center)
+                        .pointerInput(Unit) {
+                            awaitPointerEventScope {
+                                while (true) {
+                                    val event = awaitPointerEvent(PointerEventPass.Main)
+                                    if (event.type == PointerEventType.Scroll) {
+                                        val scrollDelta = event.changes.firstOrNull()?.scrollDelta
+                                        if (scrollDelta != null) {
+                                            val delta = -scrollDelta.y * 0.01f
+                                            val centerX = (cropLeft + cropRight) / 2f
+                                            val centerY = (cropTop + cropBottom) / 2f
+                                            val halfW = (cropRight - cropLeft) / 2f + delta
+                                            val halfH = (cropBottom - cropTop) / 2f + delta
+                                            val minSize = 0.05f
+                                            val maxHalfW = min(centerX, 1f - centerX)
+                                            val maxHalfH = min(centerY, 1f - centerY)
+                                            val hw = halfW.coerceIn(minSize / 2, maxHalfW)
+                                            val hh = halfH.coerceIn(minSize / 2, maxHalfH)
+                                            cropLeft = (centerX - hw).coerceIn(0f, 1f)
+                                            cropRight = (centerX + hw).coerceIn(0f, 1f)
+                                            cropTop = (centerY - hh).coerceIn(0f, 1f)
+                                            cropBottom = (centerY + hh).coerceIn(0f, 1f)
+                                            event.changes.forEach { it.consume() }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        // Pinch-to-zoom on touch screens
+                        .pointerInput(Unit) {
+                            awaitPointerEventScope {
+                                var lastDist = 0f
+                                while (true) {
+                                    val event = awaitPointerEvent(PointerEventPass.Main)
+                                    val pressed = event.changes.filter { it.pressed }
+                                    if (pressed.size >= 2) {
+                                        val p0 = pressed[0].position
+                                        val p1 = pressed[1].position
+                                        val dist = (p1 - p0).getDistance()
+                                        if (lastDist > 0f) {
+                                            val delta = (dist - lastDist) * 0.0004f
+                                            val centerX = (cropLeft + cropRight) / 2f
+                                            val centerY = (cropTop + cropBottom) / 2f
+                                            val halfW = (cropRight - cropLeft) / 2f + delta
+                                            val halfH = (cropBottom - cropTop) / 2f + delta
+                                            val minSize = 0.05f
+                                            val maxHalfW = min(centerX, 1f - centerX)
+                                            val maxHalfH = min(centerY, 1f - centerY)
+                                            val hw = halfW.coerceIn(minSize / 2, maxHalfW)
+                                            val hh = halfH.coerceIn(minSize / 2, maxHalfH)
+                                            cropLeft = (centerX - hw).coerceIn(0f, 1f)
+                                            cropRight = (centerX + hw).coerceIn(0f, 1f)
+                                            cropTop = (centerY - hh).coerceIn(0f, 1f)
+                                            cropBottom = (centerY + hh).coerceIn(0f, 1f)
+                                        }
+                                        lastDist = dist
+                                        pressed.forEach { it.consume() }
+                                    } else {
+                                        lastDist = 0f
+                                    }
+                                }
+                            }
+                        }
+                        // Drag corners or move crop region
                         .pointerInput(Unit) {
                             detectDragGestures(
                                 onDragStart = { offset ->
@@ -230,12 +327,9 @@ private fun RectCropDialog(
                             )
                         },
                 ) {
-                    // Draw image
                     Canvas(modifier = Modifier.fillMaxSize()) {
                         drawImage(image = bitmap, dstOffset = IntOffset(0, 0), dstSize = IntSize(size.width.roundToInt(), size.height.roundToInt()))
                     }
-
-                    // Overlay with crop region
                     Canvas(
                         modifier = Modifier.fillMaxSize().graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
                     ) {
@@ -243,19 +337,14 @@ private fun RectCropDialog(
                         val lx = cropLeft * w; val ly = cropTop * h
                         val rx = cropRight * w; val by = cropBottom * h
 
-                        // Dark overlay
                         drawRect(Color.Black.copy(alpha = 0.5f))
-                        // Clear crop region
                         drawRect(Color.Transparent, Offset(lx, ly), Size(rx - lx, by - ly), blendMode = BlendMode.Clear)
-                        // Border
                         drawRect(Color.White, Offset(lx, ly), Size(rx - lx, by - ly), style = Stroke(2f))
-                        // Grid
                         val gw = rx - lx; val gh = by - ly
                         drawLine(Color.White.copy(0.3f), Offset(lx + gw / 3, ly), Offset(lx + gw / 3, by))
                         drawLine(Color.White.copy(0.3f), Offset(lx + gw * 2 / 3, ly), Offset(lx + gw * 2 / 3, by))
                         drawLine(Color.White.copy(0.3f), Offset(lx, ly + gh / 3), Offset(rx, ly + gh / 3))
                         drawLine(Color.White.copy(0.3f), Offset(lx, ly + gh * 2 / 3), Offset(rx, ly + gh * 2 / 3))
-                        // Corner handles
                         val hs = 10f
                         listOf(Offset(lx, ly), Offset(rx, ly), Offset(lx, by), Offset(rx, by)).forEach { c ->
                             drawRect(Color.White, Offset(c.x - hs / 2, c.y - hs / 2), Size(hs, hs))
