@@ -1,4 +1,4 @@
-﻿package com.aichat.data.ai.tool
+package com.aichat.data.ai.tool
 
 import com.aichat.data.ai.AiMessage
 import com.aichat.data.ai.AiToolCall
@@ -52,6 +52,7 @@ data class ToolContext(
     val voiceSampleUri: String = "",
     val ttsProviderId: String = "",
     val sessionId: String = "",
+    val systemPrompt: String = "",
 )
 
 interface AiTool {

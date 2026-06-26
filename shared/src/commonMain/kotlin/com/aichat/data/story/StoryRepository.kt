@@ -1,4 +1,4 @@
-﻿package com.aichat.data.story
+package com.aichat.data.story
 
 import com.aichat.data.database.dao.StoryDao
 import com.aichat.data.database.entity.StoryEntity

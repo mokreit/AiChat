@@ -1,4 +1,4 @@
-﻿package com.aichat.ui.main
+package com.aichat.ui.main
 
 import kotlinx.serialization.Serializable
 

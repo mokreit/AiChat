@@ -1,4 +1,4 @@
-﻿package com.aichat.ui.story
+package com.aichat.ui.story
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable

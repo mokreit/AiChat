@@ -1,4 +1,4 @@
-﻿package com.aichat.data.database
+package com.aichat.data.database
 
 import androidx.room.ConstructedBy
 import androidx.room.Database
@@ -26,7 +26,7 @@ import com.aichat.data.database.entity.VoiceConfigEntity
         ModelConfigEntity::class,
         VoiceConfigEntity::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = true,
 )
 @ConstructedBy(AppDatabaseConstructor::class)

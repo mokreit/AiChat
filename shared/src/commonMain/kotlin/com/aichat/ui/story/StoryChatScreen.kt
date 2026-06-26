@@ -1,4 +1,4 @@
-﻿package com.aichat.ui.story
+package com.aichat.ui.story
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image

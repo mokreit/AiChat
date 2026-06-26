@@ -1,4 +1,4 @@
-﻿package com.aichat.data.ai.tool
+package com.aichat.data.ai.tool
 
 import com.aichat.data.ai.AiChatRequest
 import com.aichat.data.ai.AiMessage

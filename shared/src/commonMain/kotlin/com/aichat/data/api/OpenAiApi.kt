@@ -1,4 +1,4 @@
-﻿package com.aichat.data.api
+package com.aichat.data.api
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable

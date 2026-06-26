@@ -1,4 +1,4 @@
-﻿package com.aichat.di
+package com.aichat.di
 
 import com.aichat.data.ai.AiProviderRegistry
 import com.aichat.data.ai.AiRepository

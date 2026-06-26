@@ -1,4 +1,4 @@
-﻿package com.aichat.data.database.dao
+package com.aichat.data.database.dao
 
 import androidx.room.Dao
 import androidx.room.Delete

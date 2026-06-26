@@ -1,4 +1,4 @@
-﻿package com.aichat.data.database.entity
+package com.aichat.data.database.entity
 
 import androidx.room.Entity
 import androidx.room.ForeignKey
@@ -27,4 +27,5 @@ data class MessageEntity(
     val timestamp: Long,
     val isVoice: Boolean = false,
     val voiceUri: String = "",
+    val imageUri: String = "",
 )

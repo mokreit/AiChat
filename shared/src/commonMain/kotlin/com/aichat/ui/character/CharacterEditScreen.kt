@@ -1,4 +1,4 @@
-﻿package com.aichat.ui.character
+﻿﻿package com.aichat.ui.character
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -230,7 +230,7 @@ fun CharacterEditScreen(
                 }
             }
 
-            // Background image picker
+            // Background image + alpha (merged)
             Surface(shape = RoundedCornerShape(16.dp), color = Color.White, border = BorderStroke(1.dp, Color(0xFFE5E7EB)), modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(s.backgroundImage, style = AiChatTypography.bodyMedium.copy(fontWeight = FontWeight.Medium), color = Color(0xFF9CA3AF))
@@ -270,12 +270,7 @@ fun CharacterEditScreen(
                         Spacer(modifier = Modifier.width(12.dp))
                         Text(s.backgroundImage, style = AiChatTypography.bodyLarge, color = Color(0xFF111827))
                     }
-                }
-            }
-
-            // Background alpha slider
-            Surface(shape = RoundedCornerShape(16.dp), color = Color.White, border = BorderStroke(1.dp, Color(0xFFE5E7EB)), modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                    Spacer(modifier = Modifier.height(12.dp))
                     Text(
                         text = "背景透明度：${"%.0f".format(backgroundAlpha * 100)}%",
                         style = AiChatTypography.bodyMedium.copy(fontWeight = FontWeight.Medium),
@@ -310,154 +305,138 @@ fun CharacterEditScreen(
             }
 
             // Name
-            Surface(shape = RoundedCornerShape(16.dp), color = Color.White, border = BorderStroke(1.dp, Color(0xFFE5E7EB)), modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    OutlinedTextField(
-                        value = name,
-                        onValueChange = { name = it; nameError = false },
-                        label = { Text("${s.name} *") },
-                        isError = nameError,
-                        supportingText = if (nameError) {{ Text(s.requiredField) }} else null,
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        shape = RoundedCornerShape(12.dp),
-                        colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Color(0xFF000000),
-                            unfocusedBorderColor = Color(0xFFE5E7EB),
-                            cursorColor = Color(0xFF000000),
-                            focusedLabelColor = Color(0xFF000000),
-                        ),
-                    )
-                }
-            }
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it; nameError = false },
+                label = { Text("${s.name} *") },
+                isError = nameError,
+                supportingText = if (nameError) {{ Text(s.requiredField) }} else null,
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                shape = RoundedCornerShape(12.dp),
+                colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color(0xFF000000),
+                    unfocusedBorderColor = Color(0xFFE5E7EB),
+                    cursorColor = Color(0xFF000000),
+                    focusedLabelColor = Color(0xFF000000),
+                ),
+            )
 
             // First message
-            Surface(shape = RoundedCornerShape(16.dp), color = Color.White, border = BorderStroke(1.dp, Color(0xFFE5E7EB)), modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    OutlinedTextField(
-                        value = firstMessage,
-                        onValueChange = { firstMessage = it },
-                        label = { Text(s.firstMessage) },
-                        modifier = Modifier.fillMaxWidth(),
-                        minLines = 2,
-                        maxLines = 4,
-                        shape = RoundedCornerShape(12.dp),
-                        colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Color(0xFF000000),
-                            unfocusedBorderColor = Color(0xFFE5E7EB),
-                            cursorColor = Color(0xFF000000),
-                            focusedLabelColor = Color(0xFF000000),
-                        ),
-                    )
-                }
-            }
+            OutlinedTextField(
+                value = firstMessage,
+                onValueChange = { firstMessage = it },
+                label = { Text(s.firstMessage) },
+                modifier = Modifier.fillMaxWidth(),
+                minLines = 2,
+                maxLines = 4,
+                shape = RoundedCornerShape(12.dp),
+                colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color(0xFF000000),
+                    unfocusedBorderColor = Color(0xFFE5E7EB),
+                    cursorColor = Color(0xFF000000),
+                    focusedLabelColor = Color(0xFF000000),
+                ),
+            )
 
             // System prompt
-            Surface(shape = RoundedCornerShape(16.dp), color = Color.White, border = BorderStroke(1.dp, Color(0xFFE5E7EB)), modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    OutlinedTextField(
-                        value = systemPrompt,
-                        onValueChange = { systemPrompt = it },
-                        label = { Text(s.systemPrompt) },
-                        modifier = Modifier.fillMaxWidth(),
-                        minLines = 2,
-                        maxLines = 6,
-                        shape = RoundedCornerShape(12.dp),
-                        colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Color(0xFF000000),
-                            unfocusedBorderColor = Color(0xFFE5E7EB),
-                            cursorColor = Color(0xFF000000),
-                            focusedLabelColor = Color(0xFF000000),
-                        ),
-                    )
-                }
-            }
+            OutlinedTextField(
+                value = systemPrompt,
+                onValueChange = { systemPrompt = it },
+                label = { Text(s.systemPrompt) },
+                modifier = Modifier.fillMaxWidth(),
+                minLines = 2,
+                maxLines = 6,
+                shape = RoundedCornerShape(12.dp),
+                colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color(0xFF000000),
+                    unfocusedBorderColor = Color(0xFFE5E7EB),
+                    cursorColor = Color(0xFF000000),
+                    focusedLabelColor = Color(0xFF000000),
+                ),
+            )
 
             // Voice model selector
-            Surface(shape = RoundedCornerShape(16.dp), color = Color.White, border = BorderStroke(1.dp, Color(0xFFE5E7EB)), modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    var voiceMenuExpanded by remember { mutableStateOf(false) }
-                    val selectedVoiceName = voiceConfigs.find { it.id == voiceConfigId }?.let {
-                        it.name.ifBlank { it.voiceId.ifBlank { it.provider } }
-                    } ?: s.notConfigured
+            run {
+                var voiceMenuExpanded by remember { mutableStateOf(false) }
+                val selectedVoiceName = voiceConfigs.find { it.id == voiceConfigId }?.let {
+                    it.name.ifBlank { it.voiceId.ifBlank { it.provider } }
+                } ?: s.notConfigured
 
-                    ExposedDropdownMenuBox(
+                ExposedDropdownMenuBox(
+                    expanded = voiceMenuExpanded,
+                    onExpandedChange = { voiceMenuExpanded = !voiceMenuExpanded },
+                ) {
+                    OutlinedTextField(
+                        value = selectedVoiceName,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text(s.voiceModel) },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = voiceMenuExpanded) },
+                        modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable),
+                    )
+                    ExposedDropdownMenu(
                         expanded = voiceMenuExpanded,
-                        onExpandedChange = { voiceMenuExpanded = !voiceMenuExpanded },
+                        onDismissRequest = { voiceMenuExpanded = false },
                     ) {
-                        OutlinedTextField(
-                            value = selectedVoiceName,
-                            onValueChange = {},
-                            readOnly = true,
-                            label = { Text(s.voiceModel) },
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = voiceMenuExpanded) },
-                            modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable),
+                        DropdownMenuItem(
+                            text = { Text(s.notConfigured) },
+                            onClick = {
+                                voiceConfigId = ""
+                                voiceMenuExpanded = false
+                            },
                         )
-                        ExposedDropdownMenu(
-                            expanded = voiceMenuExpanded,
-                            onDismissRequest = { voiceMenuExpanded = false },
-                        ) {
+                        voiceConfigs.forEach { config ->
                             DropdownMenuItem(
-                                text = { Text(s.notConfigured) },
+                                text = { Text(config.name.ifBlank { config.voiceId.ifBlank { config.provider } }) },
                                 onClick = {
-                                    voiceConfigId = ""
+                                    voiceConfigId = config.id
                                     voiceMenuExpanded = false
                                 },
                             )
-                            voiceConfigs.forEach { config ->
-                                DropdownMenuItem(
-                                    text = { Text(config.name.ifBlank { config.voiceId.ifBlank { config.provider } }) },
-                                    onClick = {
-                                        voiceConfigId = config.id
-                                        voiceMenuExpanded = false
-                                    },
-                                )
-                            }
                         }
                     }
                 }
             }
 
             // Model config selector
-            Surface(shape = RoundedCornerShape(16.dp), color = Color.White, border = BorderStroke(1.dp, Color(0xFFE5E7EB)), modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    var modelMenuExpanded by remember { mutableStateOf(false) }
-                    val selectedModelName = modelConfigs.find { it.id == modelConfigId }?.let {
-                        it.name.ifBlank { it.modelName }
-                    } ?: s.defaultModel
+            run {
+                var modelMenuExpanded by remember { mutableStateOf(false) }
+                val selectedModelName = modelConfigs.find { it.id == modelConfigId }?.let {
+                    it.name.ifBlank { it.modelName }
+                } ?: s.defaultModel
 
-                    ExposedDropdownMenuBox(
+                ExposedDropdownMenuBox(
+                    expanded = modelMenuExpanded,
+                    onExpandedChange = { modelMenuExpanded = !modelMenuExpanded },
+                ) {
+                    OutlinedTextField(
+                        value = selectedModelName,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text(s.aiModel) },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = modelMenuExpanded) },
+                        modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable),
+                    )
+                    ExposedDropdownMenu(
                         expanded = modelMenuExpanded,
-                        onExpandedChange = { modelMenuExpanded = !modelMenuExpanded },
+                        onDismissRequest = { modelMenuExpanded = false },
                     ) {
-                        OutlinedTextField(
-                            value = selectedModelName,
-                            onValueChange = {},
-                            readOnly = true,
-                            label = { Text(s.aiModel) },
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = modelMenuExpanded) },
-                            modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable),
+                        DropdownMenuItem(
+                            text = { Text(s.defaultModel) },
+                            onClick = {
+                                modelConfigId = ""
+                                modelMenuExpanded = false
+                            },
                         )
-                        ExposedDropdownMenu(
-                            expanded = modelMenuExpanded,
-                            onDismissRequest = { modelMenuExpanded = false },
-                        ) {
+                        modelConfigs.forEach { config ->
                             DropdownMenuItem(
-                                text = { Text(s.defaultModel) },
+                                text = { Text(config.name.ifBlank { config.modelName }) },
                                 onClick = {
-                                    modelConfigId = ""
+                                    modelConfigId = config.id
                                     modelMenuExpanded = false
                                 },
                             )
-                            modelConfigs.forEach { config ->
-                                DropdownMenuItem(
-                                    text = { Text(config.name.ifBlank { config.modelName }) },
-                                    onClick = {
-                                        modelConfigId = config.id
-                                        modelMenuExpanded = false
-                                    },
-                                )
-                            }
                         }
                     }
                 }

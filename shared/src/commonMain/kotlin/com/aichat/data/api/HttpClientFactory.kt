@@ -1,4 +1,4 @@
-﻿package com.aichat.data.api
+package com.aichat.data.api
 
 import io.github.aakira.napier.Napier
 import io.ktor.client.HttpClient

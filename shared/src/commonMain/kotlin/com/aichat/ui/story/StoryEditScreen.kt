@@ -1,4 +1,4 @@
-﻿package com.aichat.ui.story
+package com.aichat.ui.story
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -135,68 +135,56 @@ fun StoryEditScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             // Title
-            Surface(shape = RoundedCornerShape(16.dp), color = Color.White, border = BorderStroke(1.dp, Color(0xFFE5E7EB)), modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    OutlinedTextField(
-                        value = title,
-                        onValueChange = { title = it; titleError = false },
-                        label = { Text("${s.name} *") },
-                        isError = titleError,
-                        supportingText = if (titleError) {{ Text(s.requiredField) }} else null,
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        shape = RoundedCornerShape(12.dp),
-                        colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Color(0xFF000000),
-                            unfocusedBorderColor = Color(0xFFE5E7EB),
-                            cursorColor = Color(0xFF000000),
-                            focusedLabelColor = Color(0xFF000000),
-                        ),
-                    )
-                }
-            }
+            OutlinedTextField(
+                value = title,
+                onValueChange = { title = it; titleError = false },
+                label = { Text("${s.name} *") },
+                isError = titleError,
+                supportingText = if (titleError) {{ Text(s.requiredField) }} else null,
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                shape = RoundedCornerShape(12.dp),
+                colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color(0xFF000000),
+                    unfocusedBorderColor = Color(0xFFE5E7EB),
+                    cursorColor = Color(0xFF000000),
+                    focusedLabelColor = Color(0xFF000000),
+                ),
+            )
 
             // Description
-            Surface(shape = RoundedCornerShape(16.dp), color = Color.White, border = BorderStroke(1.dp, Color(0xFFE5E7EB)), modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    OutlinedTextField(
-                        value = description,
-                        onValueChange = { description = it },
-                        label = { Text(s.description) },
-                        modifier = Modifier.fillMaxWidth(),
-                        minLines = 2,
-                        maxLines = 4,
-                        shape = RoundedCornerShape(12.dp),
-                        colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Color(0xFF000000),
-                            unfocusedBorderColor = Color(0xFFE5E7EB),
-                            cursorColor = Color(0xFF000000),
-                            focusedLabelColor = Color(0xFF000000),
-                        ),
-                    )
-                }
-            }
+            OutlinedTextField(
+                value = description,
+                onValueChange = { description = it },
+                label = { Text(s.description) },
+                modifier = Modifier.fillMaxWidth(),
+                minLines = 2,
+                maxLines = 4,
+                shape = RoundedCornerShape(12.dp),
+                colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color(0xFF000000),
+                    unfocusedBorderColor = Color(0xFFE5E7EB),
+                    cursorColor = Color(0xFF000000),
+                    focusedLabelColor = Color(0xFF000000),
+                ),
+            )
 
             // System prompt
-            Surface(shape = RoundedCornerShape(16.dp), color = Color.White, border = BorderStroke(1.dp, Color(0xFFE5E7EB)), modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    OutlinedTextField(
-                        value = systemPrompt,
-                        onValueChange = { systemPrompt = it },
-                        label = { Text(s.systemPrompt) },
-                        modifier = Modifier.fillMaxWidth(),
-                        minLines = 3,
-                        maxLines = 8,
-                        shape = RoundedCornerShape(12.dp),
-                        colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Color(0xFF000000),
-                            unfocusedBorderColor = Color(0xFFE5E7EB),
-                            cursorColor = Color(0xFF000000),
-                            focusedLabelColor = Color(0xFF000000),
-                        ),
-                    )
-                }
-            }
+            OutlinedTextField(
+                value = systemPrompt,
+                onValueChange = { systemPrompt = it },
+                label = { Text(s.systemPrompt) },
+                modifier = Modifier.fillMaxWidth(),
+                minLines = 3,
+                maxLines = 8,
+                shape = RoundedCornerShape(12.dp),
+                colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color(0xFF000000),
+                    unfocusedBorderColor = Color(0xFFE5E7EB),
+                    cursorColor = Color(0xFF000000),
+                    focusedLabelColor = Color(0xFF000000),
+                ),
+            )
 
             // Character selection
             if (characters.isNotEmpty()) {

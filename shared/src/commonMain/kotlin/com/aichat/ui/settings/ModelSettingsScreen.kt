@@ -1,4 +1,4 @@
-﻿package com.aichat.ui.settings
+package com.aichat.ui.settings
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Column

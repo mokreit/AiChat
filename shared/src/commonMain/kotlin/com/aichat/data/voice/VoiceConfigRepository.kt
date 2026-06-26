@@ -1,4 +1,4 @@
-﻿package com.aichat.data.voice
+package com.aichat.data.voice
 
 import com.aichat.data.database.dao.VoiceConfigDao
 import com.aichat.data.database.entity.VoiceConfigEntity

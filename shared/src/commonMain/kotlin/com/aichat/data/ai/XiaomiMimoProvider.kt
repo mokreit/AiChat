@@ -1,4 +1,4 @@
-﻿package com.aichat.data.ai
+package com.aichat.data.ai
 
 import com.aichat.data.api.ApiResult
 import io.ktor.client.HttpClient
