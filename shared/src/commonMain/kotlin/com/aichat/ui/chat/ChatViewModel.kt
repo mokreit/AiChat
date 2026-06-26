@@ -1,4 +1,4 @@
-package com.aichat.ui.chat
+﻿package com.aichat.ui.chat
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope

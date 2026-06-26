@@ -1,4 +1,4 @@
-package com.aichat.ui.story
+﻿package com.aichat.ui.story
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -14,6 +14,10 @@ import com.aichat.data.database.entity.MessageEntity
 import com.aichat.data.model.ModelConfigRepository
 import com.aichat.data.settings.SettingsRepository
 import com.aichat.data.story.StoryRepository
+import com.aichat.data.voice.AudioPlayer
+import com.aichat.data.voice.TtsConfig
+import com.aichat.data.voice.TtsProviderRegistry
+import com.aichat.data.voice.TtsRequest
 import com.aichat.ui.chat.MessageUi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,6 +31,12 @@ data class StoryCharacterInfo(
     val name: String,
     val avatarUri: String,
     val characterId: String,
+    val ttsProviderId: String = "",
+    val voiceId: String = "",
+    val voiceApiEndpoint: String = "",
+    val voiceApiKey: String = "",
+    val voiceModel: String = "",
+    val voiceDesignPrompt: String = "",
 )
 
 data class StoryChatUiState(
@@ -43,6 +53,8 @@ data class StoryChatUiState(
     val streamingContent: String = "",
     /** Streaming segments parsed in real-time (for story multi-character display) */
     val streamingSegments: List<StorySegment> = emptyList(),
+    val playingMessageId: String? = null,
+    val synthesizingMessageId: String? = null,
     val error: String? = null,
 )
 
@@ -92,6 +104,8 @@ class StoryChatViewModel(
     private val modelConfigRepository: ModelConfigRepository,
     private val chatSessionRepository: ChatSessionRepository,
     private val settingsRepository: SettingsRepository,
+    private val audioPlayer: AudioPlayer,
+    private val ttsProviderRegistry: TtsProviderRegistry,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(StoryChatUiState())
@@ -124,6 +138,12 @@ class StoryChatViewModel(
                             name = char.name,
                             avatarUri = char.avatarUri,
                             characterId = char.id,
+                            ttsProviderId = char.ttsProviderId,
+                            voiceId = char.voiceId,
+                            voiceApiEndpoint = char.voiceApiEndpoint,
+                            voiceApiKey = char.voiceApiKey,
+                            voiceModel = char.voiceModel,
+                            voiceDesignPrompt = char.voiceDesignPrompt,
                         )
                     )
                     if (modelConfigId.isBlank() && char.modelConfigId.isNotBlank()) {
@@ -255,6 +275,78 @@ class StoryChatViewModel(
     fun clearChat() {
         viewModelScope.launch {
             chatSessionRepository.deleteMessagesBySession(resolvedSessionId)
+        }
+    }
+
+    fun playVoice(messageId: String, voiceUri: String?) {
+        viewModelScope.launch {
+            // If message already has voice, play it directly
+            if (voiceUri != null) {
+                _uiState.value = _uiState.value.copy(playingMessageId = messageId)
+                audioPlayer.playFromUrl(voiceUri)
+                _uiState.value = _uiState.value.copy(playingMessageId = null)
+                return@launch
+            }
+
+            val state = _uiState.value
+            val message = state.messages.find { it.id == messageId }
+            if (message == null || message.role != "assistant") return@launch
+
+            // Find character voice config by senderName
+            val charInfo = state.characters.find {
+                it.name.equals(message.senderName, ignoreCase = true)
+            }
+
+            val providerId = charInfo?.ttsProviderId?.ifBlank { null }
+                ?: settingsRepository.defaultTtsProviderId.firstOrNull() ?: "openai-compat-tts"
+            val provider = ttsProviderRegistry.find(providerId)
+            if (provider == null) {
+                _uiState.value = _uiState.value.copy(error = "TTS provider not found: $providerId")
+                return@launch
+            }
+
+            val voiceId = charInfo?.voiceId?.ifBlank { null } ?: run {
+                val design = charInfo?.voiceDesignPrompt?.trim() ?: ""
+                val knownVoices = listOf("alloy","ash","coral","echo","fable","onyx","nova","sage","shimmer")
+                knownVoices.firstOrNull { design.lowercase().contains(it) } ?: "alloy"
+            }
+            val apiHost = charInfo?.voiceApiEndpoint?.ifBlank { null }
+                ?: settingsRepository.voiceApiHost.firstOrNull() ?: ""
+            val apiKey = charInfo?.voiceApiKey?.ifBlank { null }
+                ?: settingsRepository.voiceApiKey.firstOrNull() ?: ""
+            val model = charInfo?.voiceModel?.ifBlank { null }
+                ?: settingsRepository.voiceModel.firstOrNull() ?: "tts-1"
+
+            val ttsText = com.aichat.design.stripActionText(message.content)
+            if (ttsText.isBlank()) return@launch
+
+            val config = TtsConfig(
+                providerId = providerId,
+                apiHost = apiHost,
+                apiKey = apiKey,
+                voiceId = voiceId,
+                model = model,
+            )
+            val request = TtsRequest(
+                text = ttsText,
+                voiceId = voiceId,
+                model = model,
+            )
+
+            _uiState.value = _uiState.value.copy(synthesizingMessageId = messageId)
+            when (val result = provider.synthesize(config, request)) {
+                is ApiResult.Success -> {
+                    _uiState.value = _uiState.value.copy(
+                        synthesizingMessageId = null,
+                        playingMessageId = messageId,
+                    )
+                    audioPlayer.play(result.value.audioData, result.value.format)
+                    _uiState.value = _uiState.value.copy(playingMessageId = null)
+                }
+                else -> {
+                    _uiState.value = _uiState.value.copy(synthesizingMessageId = null)
+                }
+            }
         }
     }
 

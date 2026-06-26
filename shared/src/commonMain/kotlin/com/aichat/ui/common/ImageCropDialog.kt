@@ -1,4 +1,4 @@
-package com.aichat.ui.common
+﻿package com.aichat.ui.common
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background

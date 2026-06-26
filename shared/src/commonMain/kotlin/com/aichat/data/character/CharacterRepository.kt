@@ -1,4 +1,4 @@
-package com.aichat.data.character
+﻿package com.aichat.data.character
 
 import com.aichat.data.database.dao.CharacterDao
 import com.aichat.data.database.entity.CharacterEntity

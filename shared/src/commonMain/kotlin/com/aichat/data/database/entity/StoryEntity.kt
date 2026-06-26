@@ -1,4 +1,4 @@
-package com.aichat.data.database.entity
+﻿package com.aichat.data.database.entity
 
 import androidx.room.ColumnInfo
 import androidx.room.Entity

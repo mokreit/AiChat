@@ -1,4 +1,4 @@
-package com.aichat.ui.chat
+﻿package com.aichat.ui.chat
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -138,6 +138,7 @@ fun ChatScreen(
     sessionId: String,
     characterId: String,
     onBack: () -> Unit,
+    onEditCharacter: ((String) -> Unit)? = null,
     viewModel: ChatViewModel = rememberChatViewModel(sessionId, characterId),
     characterRepository: CharacterRepository = koinInject(),
 ) {
@@ -298,6 +299,15 @@ fun ChatScreen(
                                 }
                             },
                         )
+                        if (onEditCharacter != null) {
+                            DropdownMenuItem(
+                                text = { Text(s.editCharacter) },
+                                onClick = {
+                                    showChatMenu = false
+                                    onEditCharacter(characterId)
+                                },
+                            )
+                        }
                         DropdownMenuItem(
                             text = { Text(s.clearChat) },
                             onClick = {

@@ -1,4 +1,4 @@
-package com.aichat.design
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿package com.aichat.design
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.RepeatMode
@@ -13,9 +13,13 @@ import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -27,8 +31,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.AutoStories
+import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -48,6 +55,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.font.FontWeight
 import com.aichat.design.strings
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
@@ -78,7 +86,7 @@ fun CharacterAvatar(
     Box(
         modifier = modifier
             .clip(CircleShape)
-            .background(AiChatColors.aiAccent),
+            .background(Color(0xFF000000)),  // black
         contentAlignment = Alignment.Center,
     ) {
         if (bitmap != null) {
@@ -232,7 +240,7 @@ fun ChatBubble(
             ),
             color = bubbleBg,
             border = bubbleBorder,
-            shadowElevation = if (isUser) 0.dp else 0.dp,
+            shadowElevation = 0.dp,
             modifier = Modifier
                 .widthIn(max = 280.dp)
                 .padding(vertical = 2.dp),
@@ -520,6 +528,99 @@ fun stripActionText(content: String): String {
 }
 
 @Composable
+fun BottomNavBar(
+    currentTab: String,
+    onTabClick: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    // Exact from 1.html: border-t border-violet-100 bg-white
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = Color.White,
+        border = BorderStroke(1.dp, Color(0xFFE5E7EB)), // gray-200
+        shadowElevation = 0.dp,
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(
+                    start = 0.dp,
+                    end = 0.dp,
+                    top = 12.dp,
+                    bottom = 12.dp + WindowInsets.navigationBars
+                        .asPaddingValues().calculateBottomPadding(),
+                ),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            // Messages tab
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable { onTabClick("messages") }
+                    .padding(vertical = 0.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Email,
+                    contentDescription = "消息",
+                    tint = if (currentTab == "messages") Color(0xFF000000) else Color(0xFF9CA3AF),
+                    modifier = Modifier.size(20.dp),
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "消息",
+                    style = AiChatTypography.labelSmall.copy(fontSize = 11.sp, fontWeight = FontWeight.Medium),
+                    color = if (currentTab == "messages") Color(0xFF000000) else Color(0xFF9CA3AF),
+                )
+            }
+            // Stories tab
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable { onTabClick("stories") }
+                    .padding(vertical = 0.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.AutoStories,
+                    contentDescription = "故事",
+                    tint = if (currentTab == "stories") Color(0xFF000000) else Color(0xFF9CA3AF),
+                    modifier = Modifier.size(20.dp),
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "故事",
+                    style = AiChatTypography.labelSmall.copy(fontSize = 11.sp, fontWeight = FontWeight.Medium),
+                    color = if (currentTab == "stories") Color(0xFF000000) else Color(0xFF9CA3AF),
+                )
+            }
+            // Settings tab
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable { onTabClick("settings") }
+                    .padding(vertical = 0.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Settings,
+                    contentDescription = "设置",
+                    tint = if (currentTab == "settings") Color(0xFF000000) else Color(0xFF9CA3AF),
+                    modifier = Modifier.size(20.dp),
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "设置",
+                    style = AiChatTypography.labelSmall.copy(fontSize = 11.sp, fontWeight = FontWeight.Medium),
+                    color = if (currentTab == "settings") Color(0xFF000000) else Color(0xFF9CA3AF),
+                )
+            }
+        }
+    }
+}
+
+@Composable
 fun SettingItem(
     title: String,
     subtitle: String? = null,
@@ -531,20 +632,20 @@ fun SettingItem(
         modifier = modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = 16.dp, vertical = 16.dp), // px-4 py-4
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
-                style = AiChatTypography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface,
+                style = AiChatTypography.bodyMedium.copy(fontWeight = FontWeight.Medium), // text-sm font-medium
+                color = Color(0xFF111827), // text-gray-900
             )
             if (subtitle != null) {
                 Text(
                     text = subtitle,
-                    style = AiChatTypography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = AiChatTypography.bodySmall, // text-xs
+                    color = Color(0xFF9CA3AF), // text-gray-400
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )

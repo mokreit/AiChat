@@ -1,4 +1,4 @@
-package com.aichat.platform
+﻿package com.aichat.platform
 
 import androidx.compose.ui.graphics.ImageBitmap
 

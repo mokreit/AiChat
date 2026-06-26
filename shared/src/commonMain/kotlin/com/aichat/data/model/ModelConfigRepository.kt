@@ -1,4 +1,4 @@
-package com.aichat.data.model
+﻿package com.aichat.data.model
 
 import com.aichat.data.database.dao.ModelConfigDao
 import com.aichat.data.database.entity.ModelConfigEntity

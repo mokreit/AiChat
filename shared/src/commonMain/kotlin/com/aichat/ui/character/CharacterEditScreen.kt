@@ -1,4 +1,4 @@
-package com.aichat.ui.character
+﻿package com.aichat.ui.character
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -12,10 +12,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -48,7 +52,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.material3.Surface
 import com.aichat.data.character.CharacterRepository
 import com.aichat.data.database.entity.CharacterEntity
 import com.aichat.data.model.ModelConfigRepository
@@ -144,15 +151,32 @@ fun CharacterEditScreen(
     }
 
     Scaffold(
+        containerColor = Color.White,
         topBar = {
-            TopAppBar(
-                title = { Text(if (isEdit) s.editCharacter else s.createCharacter) },
-                navigationIcon = {
+            Surface(
+                color = Color.White,
+                border = BorderStroke(1.dp, Color(0xFFE5E7EB)),
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding())
+                        .padding(horizontal = 8.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = s.back)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = s.back, tint = Color(0xFF374151))
                     }
-                },
-            )
+                    Spacer(modifier = Modifier.weight(1f))
+                    Text(
+                        text = if (isEdit) s.editCharacter else s.createCharacter,
+                        style = AiChatTypography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                        color = Color(0xFF111827),
+                    )
+                    Spacer(modifier = Modifier.weight(1f))
+                    Spacer(modifier = Modifier.size(40.dp))
+                }
+            }
         },
     ) { padding ->
         Column(
@@ -164,224 +188,277 @@ fun CharacterEditScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             // Avatar picker
-            Text(s.avatar, style = AiChatTypography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(64.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.tertiary)
-                        .clickable {
-                            scope.launch {
-                                val picker = FilePicker()
-                                val uri = picker.pickImage() ?: return@launch
-                                val bitmap = loadImageFromFile(uri) ?: return@launch
-                                cropSource = bitmap
-                                cropForAvatar = true
+            Surface(shape = RoundedCornerShape(16.dp), color = Color.White, border = BorderStroke(1.dp, Color(0xFFE5E7EB)), modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(s.avatar, style = AiChatTypography.bodyMedium.copy(fontWeight = FontWeight.Medium), color = Color(0xFF9CA3AF))
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(64.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFF000000))
+                                .clickable {
+                                    scope.launch {
+                                        val picker = FilePicker()
+                                        val uri = picker.pickImage() ?: return@launch
+                                        val bitmap = loadImageFromFile(uri) ?: return@launch
+                                        cropSource = bitmap
+                                        cropForAvatar = true
+                                    }
+                                },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            if (avatarBitmap != null) {
+                                Image(
+                                    bitmap = avatarBitmap!!,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(64.dp).clip(CircleShape),
+                                    contentScale = ContentScale.Crop,
+                                )
+                            } else {
+                                Text(
+                                    text = name.take(1).uppercase().ifBlank { "?" },
+                                    style = AiChatTypography.titleLarge,
+                                    color = Color.White,
+                                )
                             }
-                        },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    if (avatarBitmap != null) {
-                        Image(
-                            bitmap = avatarBitmap!!,
-                            contentDescription = null,
-                            modifier = Modifier.size(64.dp).clip(CircleShape),
-                            contentScale = ContentScale.Crop,
-                        )
-                    } else {
-                        Text(
-                            text = name.take(1).uppercase().ifBlank { "?" },
-                            style = AiChatTypography.titleLarge,
-                            color = Color.White,
-                        )
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(s.avatar, style = AiChatTypography.bodyLarge, color = Color(0xFF111827))
                     }
                 }
-                Spacer(modifier = Modifier.width(12.dp))
-                Text(s.avatar, style = AiChatTypography.bodyLarge)
             }
 
             // Background image picker
-            Text(s.backgroundImage, style = AiChatTypography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(width = 96.dp, height = 54.dp)
-                        .clip(MaterialTheme.shapes.small)
-                        .background(MaterialTheme.colorScheme.surfaceVariant)
-                        .clickable {
-                            scope.launch {
-                                val picker = FilePicker()
-                                val uri = picker.pickImage() ?: return@launch
-                                val bitmap = loadImageFromFile(uri) ?: return@launch
-                                cropSource = bitmap
-                                cropForAvatar = false
+            Surface(shape = RoundedCornerShape(16.dp), color = Color.White, border = BorderStroke(1.dp, Color(0xFFE5E7EB)), modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(s.backgroundImage, style = AiChatTypography.bodyMedium.copy(fontWeight = FontWeight.Medium), color = Color(0xFF9CA3AF))
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(width = 96.dp, height = 54.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color(0xFFE5E7EB))
+                                .clickable {
+                                    scope.launch {
+                                        val picker = FilePicker()
+                                        val uri = picker.pickImage() ?: return@launch
+                                        val bitmap = loadImageFromFile(uri) ?: return@launch
+                                        cropSource = bitmap
+                                        cropForAvatar = false
+                                    }
+                                },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            if (bgBitmap != null) {
+                                Image(
+                                    bitmap = bgBitmap!!,
+                                    contentDescription = null,
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Fit,
+                                )
+                            } else {
+                                Text(
+                                    text = s.notConfigured,
+                                    style = AiChatTypography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
                             }
-                        },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    if (bgBitmap != null) {
-                        Image(
-                            bitmap = bgBitmap!!,
-                            contentDescription = null,
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Fit,
-                        )
-                    } else {
-                        Text(
-                            text = s.notConfigured,
-                            style = AiChatTypography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(s.backgroundImage, style = AiChatTypography.bodyLarge, color = Color(0xFF111827))
                     }
                 }
-                Spacer(modifier = Modifier.width(12.dp))
-                Text(s.backgroundImage, style = AiChatTypography.bodyLarge)
             }
 
             // Background alpha slider
-            Column(modifier = Modifier.fillMaxWidth()) {
-                Text(
-                    text = "背景透明度：${"%.0f".format(backgroundAlpha * 100)}%",
-                    style = AiChatTypography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Slider(
-                        value = backgroundAlpha,
-                        onValueChange = { backgroundAlpha = it },
-                        valueRange = 0f..1f,
-                        modifier = Modifier.weight(1f),
+            Surface(shape = RoundedCornerShape(16.dp), color = Color.White, border = BorderStroke(1.dp, Color(0xFFE5E7EB)), modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "背景透明度：${"%.0f".format(backgroundAlpha * 100)}%",
+                        style = AiChatTypography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                        color = Color(0xFF9CA3AF),
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Slider(
+                            value = backgroundAlpha,
+                            onValueChange = { backgroundAlpha = it },
+                            valueRange = 0f..1f,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        OutlinedTextField(
+                            value = "%.0f".format(backgroundAlpha * 100),
+                            onValueChange = { str ->
+                                str.filter { it.isDigit() }.toIntOrNull()?.let { pct ->
+                                    backgroundAlpha = (pct.coerceIn(0, 100) / 100f)
+                                }
+                            },
+                            modifier = Modifier.width(64.dp),
+                            singleLine = true,
+                            suffix = { Text("%", style = AiChatTypography.bodySmall) },
+                            textStyle = AiChatTypography.bodySmall,
+                        )
+                    }
+                }
+            }
+
+            // Name
+            Surface(shape = RoundedCornerShape(16.dp), color = Color.White, border = BorderStroke(1.dp, Color(0xFFE5E7EB)), modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp)) {
                     OutlinedTextField(
-                        value = "%.0f".format(backgroundAlpha * 100),
-                        onValueChange = { str ->
-                            str.filter { it.isDigit() }.toIntOrNull()?.let { pct ->
-                                backgroundAlpha = (pct.coerceIn(0, 100) / 100f)
-                            }
-                        },
-                        modifier = Modifier.width(64.dp),
+                        value = name,
+                        onValueChange = { name = it; nameError = false },
+                        label = { Text("${s.name} *") },
+                        isError = nameError,
+                        supportingText = if (nameError) {{ Text(s.requiredField) }} else null,
+                        modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
-                        suffix = { Text("%", style = AiChatTypography.bodySmall) },
-                        textStyle = AiChatTypography.bodySmall,
+                        shape = RoundedCornerShape(12.dp),
+                        colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color(0xFF000000),
+                            unfocusedBorderColor = Color(0xFFE5E7EB),
+                            cursorColor = Color(0xFF000000),
+                            focusedLabelColor = Color(0xFF000000),
+                        ),
                     )
                 }
             }
 
-            OutlinedTextField(
-                value = name,
-                onValueChange = { name = it; nameError = false },
-                label = { Text("${s.name} *") },
-                isError = nameError,
-                supportingText = if (nameError) {{ Text(s.requiredField) }} else null,
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-            )
-            OutlinedTextField(
-                value = firstMessage,
-                onValueChange = { firstMessage = it },
-                label = { Text(s.firstMessage) },
-                modifier = Modifier.fillMaxWidth(),
-                minLines = 2,
-                maxLines = 4,
-            )
-            OutlinedTextField(
-                value = systemPrompt,
-                onValueChange = { systemPrompt = it },
-                label = { Text(s.systemPrompt) },
-                modifier = Modifier.fillMaxWidth(),
-                minLines = 2,
-                maxLines = 6,
-            )
-            // Voice model selector
-            var voiceMenuExpanded by remember { mutableStateOf(false) }
-            val selectedVoiceName = voiceConfigs.find { it.id == voiceConfigId }?.let {
-                it.name.ifBlank { it.voiceId.ifBlank { it.provider } }
-            } ?: s.notConfigured
-
-            ExposedDropdownMenuBox(
-                expanded = voiceMenuExpanded,
-                onExpandedChange = { voiceMenuExpanded = !voiceMenuExpanded },
-            ) {
-                OutlinedTextField(
-                    value = selectedVoiceName,
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text(s.voiceModel) },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = voiceMenuExpanded) },
-                    modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable),
-                )
-                ExposedDropdownMenu(
-                    expanded = voiceMenuExpanded,
-                    onDismissRequest = { voiceMenuExpanded = false },
-                ) {
-                    DropdownMenuItem(
-                        text = { Text(s.notConfigured) },
-                        onClick = {
-                            voiceConfigId = ""
-                            voiceMenuExpanded = false
-                        },
+            // First message
+            Surface(shape = RoundedCornerShape(16.dp), color = Color.White, border = BorderStroke(1.dp, Color(0xFFE5E7EB)), modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    OutlinedTextField(
+                        value = firstMessage,
+                        onValueChange = { firstMessage = it },
+                        label = { Text(s.firstMessage) },
+                        modifier = Modifier.fillMaxWidth(),
+                        minLines = 2,
+                        maxLines = 4,
+                        shape = RoundedCornerShape(12.dp),
+                        colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color(0xFF000000),
+                            unfocusedBorderColor = Color(0xFFE5E7EB),
+                            cursorColor = Color(0xFF000000),
+                            focusedLabelColor = Color(0xFF000000),
+                        ),
                     )
-                    voiceConfigs.forEach { config ->
-                        DropdownMenuItem(
-                            text = { Text(config.name.ifBlank { config.voiceId.ifBlank { config.provider } }) },
-                            onClick = {
-                                voiceConfigId = config.id
-                                voiceMenuExpanded = false
-                            },
+                }
+            }
+
+            // System prompt
+            Surface(shape = RoundedCornerShape(16.dp), color = Color.White, border = BorderStroke(1.dp, Color(0xFFE5E7EB)), modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    OutlinedTextField(
+                        value = systemPrompt,
+                        onValueChange = { systemPrompt = it },
+                        label = { Text(s.systemPrompt) },
+                        modifier = Modifier.fillMaxWidth(),
+                        minLines = 2,
+                        maxLines = 6,
+                        shape = RoundedCornerShape(12.dp),
+                        colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color(0xFF000000),
+                            unfocusedBorderColor = Color(0xFFE5E7EB),
+                            cursorColor = Color(0xFF000000),
+                            focusedLabelColor = Color(0xFF000000),
+                        ),
+                    )
+                }
+            }
+
+            // Voice model selector
+            Surface(shape = RoundedCornerShape(16.dp), color = Color.White, border = BorderStroke(1.dp, Color(0xFFE5E7EB)), modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    var voiceMenuExpanded by remember { mutableStateOf(false) }
+                    val selectedVoiceName = voiceConfigs.find { it.id == voiceConfigId }?.let {
+                        it.name.ifBlank { it.voiceId.ifBlank { it.provider } }
+                    } ?: s.notConfigured
+
+                    ExposedDropdownMenuBox(
+                        expanded = voiceMenuExpanded,
+                        onExpandedChange = { voiceMenuExpanded = !voiceMenuExpanded },
+                    ) {
+                        OutlinedTextField(
+                            value = selectedVoiceName,
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text(s.voiceModel) },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = voiceMenuExpanded) },
+                            modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable),
                         )
+                        ExposedDropdownMenu(
+                            expanded = voiceMenuExpanded,
+                            onDismissRequest = { voiceMenuExpanded = false },
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text(s.notConfigured) },
+                                onClick = {
+                                    voiceConfigId = ""
+                                    voiceMenuExpanded = false
+                                },
+                            )
+                            voiceConfigs.forEach { config ->
+                                DropdownMenuItem(
+                                    text = { Text(config.name.ifBlank { config.voiceId.ifBlank { config.provider } }) },
+                                    onClick = {
+                                        voiceConfigId = config.id
+                                        voiceMenuExpanded = false
+                                    },
+                                )
+                            }
+                        }
                     }
                 }
             }
 
             // Model config selector
-            var modelMenuExpanded by remember { mutableStateOf(false) }
-            val selectedModelName = modelConfigs.find { it.id == modelConfigId }?.let {
-                it.name.ifBlank { it.modelName }
-            } ?: s.defaultModel
+            Surface(shape = RoundedCornerShape(16.dp), color = Color.White, border = BorderStroke(1.dp, Color(0xFFE5E7EB)), modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    var modelMenuExpanded by remember { mutableStateOf(false) }
+                    val selectedModelName = modelConfigs.find { it.id == modelConfigId }?.let {
+                        it.name.ifBlank { it.modelName }
+                    } ?: s.defaultModel
 
-            ExposedDropdownMenuBox(
-                expanded = modelMenuExpanded,
-                onExpandedChange = { modelMenuExpanded = !modelMenuExpanded },
-            ) {
-                OutlinedTextField(
-                    value = selectedModelName,
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text(s.aiModel) },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = modelMenuExpanded) },
-                    modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable),
-                )
-                ExposedDropdownMenu(
-                    expanded = modelMenuExpanded,
-                    onDismissRequest = { modelMenuExpanded = false },
-                ) {
-                    DropdownMenuItem(
-                        text = { Text(s.defaultModel) },
-                        onClick = {
-                            modelConfigId = ""
-                            modelMenuExpanded = false
-                        },
-                    )
-                    modelConfigs.forEach { config ->
-                        DropdownMenuItem(
-                            text = { Text(config.name.ifBlank { config.modelName }) },
-                            onClick = {
-                                modelConfigId = config.id
-                                modelMenuExpanded = false
-                            },
+                    ExposedDropdownMenuBox(
+                        expanded = modelMenuExpanded,
+                        onExpandedChange = { modelMenuExpanded = !modelMenuExpanded },
+                    ) {
+                        OutlinedTextField(
+                            value = selectedModelName,
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text(s.aiModel) },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = modelMenuExpanded) },
+                            modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable),
                         )
+                        ExposedDropdownMenu(
+                            expanded = modelMenuExpanded,
+                            onDismissRequest = { modelMenuExpanded = false },
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text(s.defaultModel) },
+                                onClick = {
+                                    modelConfigId = ""
+                                    modelMenuExpanded = false
+                                },
+                            )
+                            modelConfigs.forEach { config ->
+                                DropdownMenuItem(
+                                    text = { Text(config.name.ifBlank { config.modelName }) },
+                                    onClick = {
+                                        modelConfigId = config.id
+                                        modelMenuExpanded = false
+                                    },
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -419,8 +496,13 @@ fun CharacterEditScreen(
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF000000),
+                    contentColor = Color.White,
+                ),
             ) {
-                Text(s.save)
+                Text(s.save, style = AiChatTypography.bodyLarge.copy(fontWeight = FontWeight.SemiBold))
             }
         }
     }

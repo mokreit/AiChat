@@ -1,4 +1,4 @@
-package com.aichat.ui.settings
+﻿package com.aichat.ui.settings
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -24,6 +24,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -41,8 +43,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.aichat.data.settings.SettingsRepository
 import com.aichat.design.AiChatTypography
+import com.aichat.design.BottomNavBar
 import com.aichat.design.SettingItem
 import com.aichat.design.strings
 import com.aichat.platform.FilePicker
@@ -50,6 +54,12 @@ import com.aichat.platform.loadImageFromFile
 import com.aichat.platform.saveImageBitmap
 import com.aichat.ui.common.ImageCropDialog
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.unit.dp
 import org.koin.compose.koinInject
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -59,6 +69,8 @@ fun SettingsScreen(
     onModelSettingsClick: () -> Unit,
     onAppearanceSettingsClick: () -> Unit,
     onAboutClick: () -> Unit,
+    onMessagesClick: () -> Unit = {},
+    onStoriesClick: () -> Unit = {},
     settingsRepository: SettingsRepository = koinInject(),
 ) {
     val s = strings()
@@ -99,12 +111,29 @@ fun SettingsScreen(
     }
 
     Scaffold(
+        containerColor = Color.White,
         topBar = {
-            TopAppBar(
-                title = { Text(s.settings) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = s.back)
+            // Exact from 1.html: px-4 py-3 bg-white border-b border-violet-50
+            Surface(
+                color = Color.White,
+            ) {
+                Text(
+                    text = s.settings,
+                    style = AiChatTypography.titleLarge.copy(fontSize = 20.sp),
+                    color = Color(0xFF111827),
+                    modifier = Modifier
+                        .padding(top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding())
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                )
+            }
+        },
+        bottomBar = {
+            BottomNavBar(
+                currentTab = "settings",
+                onTabClick = { tab ->
+                    when (tab) {
+                        "messages" -> onMessagesClick()
+                        "stories" -> onStoriesClick()
                     }
                 },
             )
@@ -116,51 +145,73 @@ fun SettingsScreen(
                 .padding(padding)
                 .verticalScroll(rememberScrollState()),
         ) {
-            // User profile card
-            ProfileCard(
-                nickname = nickname ?: "",
-                avatarUri = avatarUri ?: "",
-                onNicknameClick = { showNicknameDialog = true },
-                onAvatarClick = {
-                    scope.launch {
-                        try {
-                            val picker = FilePicker()
-                            val uri = picker.pickImage()
-                            if (uri != null) {
-                                val bitmap = loadImageFromFile(uri)
-                                if (bitmap != null) {
-                                    cropSource = bitmap
+            // User profile card - same style as settings items
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = Color.White,
+                shadowElevation = 2.dp,
+                border = BorderStroke(1.dp, Color(0xFFE5E7EB)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+            ) {
+                ProfileCard(
+                    nickname = nickname ?: "",
+                    avatarUri = avatarUri ?: "",
+                    onNicknameClick = { showNicknameDialog = true },
+                    onAvatarClick = {
+                        scope.launch {
+                            try {
+                                val picker = FilePicker()
+                                val uri = picker.pickImage()
+                                if (uri != null) {
+                                    val bitmap = loadImageFromFile(uri)
+                                    if (bitmap != null) {
+                                        cropSource = bitmap
+                                    }
                                 }
-                            }
-                        } catch (_: Exception) { }
-                    }
-                },
-            )
+                            } catch (_: Exception) { }
+                        }
+                    },
+                )
+            }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
-            SettingItem(
-                title = s.modelConfig,
-                subtitle = s.configureModel,
-                onClick = onModelSettingsClick,
-            )
-            SettingItem(
-                title = s.appearance,
-                subtitle = when (themeMode) {
-                    "light" -> s.lightMode
-                    "dark" -> s.darkMode
-                    else -> s.followSystem
-                },
-                onClick = onAppearanceSettingsClick,
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            SettingItem(
-                title = s.about,
-                subtitle = "v1.0.0",
-                onClick = onAboutClick,
-            )
+            // Settings items card
+            Surface(
+                shape = RoundedCornerShape(20.dp), // rounded-2xl
+                color = Color.White,
+                shadowElevation = 2.dp, // shadow-sm
+                border = BorderStroke(1.dp, Color(0xFFE5E7EB)), // border-violet-50
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+            ) {
+                Column {
+                    SettingItem(
+                        title = s.modelConfig,
+                        subtitle = s.configureModel,
+                        onClick = onModelSettingsClick,
+                    )
+                    HorizontalDivider(color = Color(0xFFE5E7EB), thickness = 1.dp) // border-violet-50
+                    SettingItem(
+                        title = s.appearance,
+                        subtitle = when (themeMode) {
+                            "light" -> s.lightMode
+                            "dark" -> s.darkMode
+                            else -> s.followSystem
+                        },
+                        onClick = onAppearanceSettingsClick,
+                    )
+                    HorizontalDivider(color = Color(0xFFE5E7EB), thickness = 1.dp)
+                    SettingItem(
+                        title = s.about,
+                        subtitle = "v1.0.0",
+                        onClick = onAboutClick,
+                    )
+                }
+            }
         }
     }
 }
@@ -200,7 +251,7 @@ private fun ProfileCard(
             modifier = Modifier
                 .size(56.dp)
                 .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.tertiary)
+                .background(Color(0xFF000000))
                 .clickable(onClick = onAvatarClick),
             contentAlignment = Alignment.Center,
         ) {
@@ -226,18 +277,18 @@ private fun ProfileCard(
             Text(
                 text = nickname.ifBlank { "User" },
                 style = AiChatTypography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface,
+                color = Color(0xFF111827), // gray-900
             )
             Text(
                 text = s.tapToEdit,
                 style = AiChatTypography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = Color(0xFF9CA3AF), // gray-400
             )
         }
         Text(
-            text = "›",
+            text = "\u203A",
             style = AiChatTypography.titleLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = Color(0xFFD1D5DB), // gray-300
         )
     }
 }

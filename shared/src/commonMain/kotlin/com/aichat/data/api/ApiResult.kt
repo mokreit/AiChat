@@ -1,4 +1,4 @@
-package com.aichat.data.api
+﻿package com.aichat.data.api
 
 sealed interface ApiResult<out T> {
     data class Success<T>(val value: T) : ApiResult<T>

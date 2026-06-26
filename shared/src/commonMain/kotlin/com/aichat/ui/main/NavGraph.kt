@@ -1,4 +1,4 @@
-package com.aichat.ui.main
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿package com.aichat.ui.main
 
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
@@ -30,10 +30,11 @@ fun AppNavHost(navController: NavHostController) {
     ) {
         composable<Route.ChatList> {
             CharacterListScreen(
-                onCharacterClick = { id -> navController.navigate(Route.CharacterDetail(id)) },
-                onStoriesClick = { navController.navigate(Route.StoryList) },
-                onSettingsClick = { navController.navigate(Route.Settings) },
+                onCharacterClick = { id -> navController.navigate(Route.Chat(id)) },
+                onStoriesClick = { navController.navigate(Route.StoryList) { popUpTo(0) { inclusive = true } } },
+                onSettingsClick = { navController.navigate(Route.Settings) { popUpTo(0) { inclusive = true } } },
                 onAddCharacterClick = { navController.navigate(Route.CharacterEdit()) },
+                onEditCharacterClick = { id -> navController.navigate(Route.CharacterEdit(id)) },
                 onSessionsClick = { navController.navigate(Route.SessionList) },
             )
         }
@@ -67,6 +68,7 @@ fun AppNavHost(navController: NavHostController) {
                 sessionId = route.sessionId,
                 characterId = route.characterId,
                 onBack = { navController.popBackStack() },
+                onEditCharacter = { id -> navController.navigate(Route.CharacterEdit(id)) },
             )
         }
         composable<Route.Settings> {
@@ -75,6 +77,8 @@ fun AppNavHost(navController: NavHostController) {
                 onModelSettingsClick = { navController.navigate(Route.ModelSettings) },
                 onAppearanceSettingsClick = { navController.navigate(Route.AppearanceSettings) },
                 onAboutClick = { navController.navigate(Route.AboutSettings) },
+                onMessagesClick = { navController.navigate(Route.ChatList) { popUpTo(0) { inclusive = true } } },
+                onStoriesClick = { navController.navigate(Route.StoryList) { popUpTo(0) { inclusive = true } } },
             )
         }
         composable<Route.ModelSettings> {
@@ -112,8 +116,11 @@ fun AppNavHost(navController: NavHostController) {
         composable<Route.StoryList> {
             StoryListScreen(
                 onBack = { navController.popBackStack() },
-                onStoryClick = { id -> navController.navigate(Route.StoryDetail(id)) },
+                onStoryClick = { id -> navController.navigate(Route.StoryChat(id)) },
                 onAddStoryClick = { navController.navigate(Route.StoryEdit()) },
+                onEditStoryClick = { id -> navController.navigate(Route.StoryEdit(id)) },
+                onMessagesClick = { navController.navigate(Route.ChatList) { popUpTo(0) { inclusive = true } } },
+                onSettingsClick = { navController.navigate(Route.Settings) { popUpTo(0) { inclusive = true } } },
             )
         }
         composable<Route.StoryDetail> { backStackEntry ->
@@ -130,6 +137,7 @@ fun AppNavHost(navController: NavHostController) {
             StoryChatScreen(
                 storyId = route.storyId,
                 onBack = { navController.popBackStack() },
+                onEditStory = { id -> navController.navigate(Route.StoryEdit(id)) },
             )
         }
         composable<Route.StoryEdit> { backStackEntry ->

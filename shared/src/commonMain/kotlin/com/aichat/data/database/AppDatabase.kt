@@ -1,4 +1,4 @@
-package com.aichat.data.database
+﻿package com.aichat.data.database
 
 import androidx.room.ConstructedBy
 import androidx.room.Database

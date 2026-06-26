@@ -1,25 +1,33 @@
-package com.aichat.ui.settings
+﻿package com.aichat.ui.settings
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -29,6 +37,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.aichat.data.settings.SettingsRepository
 import com.aichat.data.voice.TtsProviderRegistry
@@ -65,40 +75,48 @@ fun VoiceSettingsScreen(
     }
 
     Scaffold(
+        containerColor = Color.White,
         topBar = {
-            TopAppBar(
-                title = { Text(s.voice) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = s.back)
-                    }
-                },
-            )
+            Surface(color = Color.White, border = BorderStroke(1.dp, Color(0xFFE5E7EB))) {
+                Row(modifier = Modifier.fillMaxWidth().padding(top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()).padding(horizontal = 8.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = s.back, tint = Color(0xFF374151)) }
+                    Spacer(modifier = Modifier.weight(1f))
+                    Text(s.voice, style = AiChatTypography.bodyMedium.copy(fontWeight = FontWeight.SemiBold), color = Color(0xFF111827))
+                    Spacer(modifier = Modifier.weight(1f))
+                    Spacer(modifier = Modifier.size(40.dp))
+                }
+            }
         },
     ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding),
+                .padding(padding)
+                .padding(16.dp),
         ) {
-            SettingItem(
-                title = s.autoPlayVoice,
-                subtitle = if (autoPlayVoice) s.on else s.off,
-                onClick = { scope.launch { settingsRepository.setAutoPlayVoice(!autoPlayVoice) } },
-                trailing = {
-                    Switch(
-                        checked = autoPlayVoice,
-                        onCheckedChange = { scope.launch { settingsRepository.setAutoPlayVoice(it) } },
+            Surface(shape = RoundedCornerShape(20.dp), color = Color.White, shadowElevation = 2.dp, border = BorderStroke(1.dp, Color(0xFFE5E7EB)), modifier = Modifier.fillMaxWidth()) {
+                Column {
+                    SettingItem(
+                        title = s.autoPlayVoice,
+                        subtitle = if (autoPlayVoice) s.on else s.off,
+                        onClick = { scope.launch { settingsRepository.setAutoPlayVoice(!autoPlayVoice) } },
+                        trailing = {
+                            Switch(
+                                checked = autoPlayVoice,
+                                onCheckedChange = { scope.launch { settingsRepository.setAutoPlayVoice(it) } },
+                            )
+                        },
                     )
-                },
-            )
-            SettingItem(
-                title = s.ttsProvider,
-                subtitle = ttsProviderRegistry.find(defaultTtsProvider ?: "")?.displayName
-                    ?: defaultTtsProvider?.ifBlank { null }
-                    ?: "OpenAI Compatible",
-                onClick = { showTtsProviderDialog = true },
-            )
+                    HorizontalDivider(color = Color(0xFFE5E7EB), thickness = 1.dp)
+                    SettingItem(
+                        title = s.ttsProvider,
+                        subtitle = ttsProviderRegistry.find(defaultTtsProvider ?: "")?.displayName
+                            ?: defaultTtsProvider?.ifBlank { null }
+                            ?: "OpenAI Compatible",
+                        onClick = { showTtsProviderDialog = true },
+                    )
+                }
+            }
         }
     }
 }

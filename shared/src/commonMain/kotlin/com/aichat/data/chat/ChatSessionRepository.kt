@@ -1,4 +1,4 @@
-package com.aichat.data.chat
+﻿package com.aichat.data.chat
 
 import com.aichat.data.database.dao.ChatSessionDao
 import com.aichat.data.database.dao.MessageDao

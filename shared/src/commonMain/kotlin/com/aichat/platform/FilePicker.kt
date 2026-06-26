@@ -1,4 +1,4 @@
-package com.aichat.platform
+﻿package com.aichat.platform
 
 /** Platform-specific file picker for selecting images */
 expect class FilePicker() {

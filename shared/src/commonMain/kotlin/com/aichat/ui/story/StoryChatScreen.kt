@@ -1,4 +1,4 @@
-package com.aichat.ui.story
+﻿package com.aichat.ui.story
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
@@ -51,6 +51,7 @@ import org.koin.compose.koinInject
 fun StoryChatScreen(
     storyId: String,
     onBack: () -> Unit,
+    onEditStory: ((String) -> Unit)? = null,
     viewModel: StoryChatViewModel = rememberStoryChatViewModel(storyId),
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -98,6 +99,12 @@ fun StoryChatScreen(
                         Icon(Icons.Default.MoreVert, contentDescription = null)
                     }
                     DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                        if (onEditStory != null) {
+                            DropdownMenuItem(
+                                text = { Text(s.editStory) },
+                                onClick = { showMenu = false; onEditStory(storyId) },
+                            )
+                        }
                         DropdownMenuItem(
                             text = { Text(s.clearChat) },
                             onClick = { showClearConfirm = true; showMenu = false },
@@ -162,6 +169,11 @@ fun StoryChatScreen(
                         ChatBubble(
                             text = message.content,
                             isUser = isUser,
+                            isPlaying = uiState.playingMessageId == message.id,
+                            isSynthesizing = uiState.synthesizingMessageId == message.id,
+                            onPlayClick = if (!isUser) {
+                                { viewModel.playVoice(message.id, message.voiceAttachmentUri) }
+                            } else null,
                             avatarName = if (isUser) "" else displayName,
                             avatarUri = avatarUri,
                         )
@@ -240,6 +252,8 @@ private fun rememberStoryChatViewModel(storyId: String): StoryChatViewModel {
     val modelConfigRepository = koinInject<com.aichat.data.model.ModelConfigRepository>()
     val chatSessionRepository = koinInject<com.aichat.data.chat.ChatSessionRepository>()
     val settingsRepository = koinInject<com.aichat.data.settings.SettingsRepository>()
+    val audioPlayer = koinInject<com.aichat.data.voice.AudioPlayer>()
+    val ttsProviderRegistry = koinInject<com.aichat.data.voice.TtsProviderRegistry>()
 
     return androidx.lifecycle.viewmodel.compose.viewModel {
         StoryChatViewModel(
@@ -250,6 +264,8 @@ private fun rememberStoryChatViewModel(storyId: String): StoryChatViewModel {
             modelConfigRepository = modelConfigRepository,
             chatSessionRepository = chatSessionRepository,
             settingsRepository = settingsRepository,
+            audioPlayer = audioPlayer,
+            ttsProviderRegistry = ttsProviderRegistry,
         )
     }
 }
