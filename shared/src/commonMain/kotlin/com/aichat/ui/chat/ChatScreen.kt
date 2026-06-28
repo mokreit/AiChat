@@ -722,6 +722,7 @@ private fun rememberChatViewModel(
     val settingsRepository = koinInject<com.aichat.data.settings.SettingsRepository>()
     val comfyUiRepository = koinInject<com.aichat.data.comfyui.ComfyUiRepository>()
     val imageModelConfigRepository = koinInject<com.aichat.data.model.ImageModelConfigRepository>()
+    val toolRegistry = koinInject<com.aichat.data.ai.tool.AiToolRegistry>()
 
     return androidx.lifecycle.viewmodel.compose.viewModel {
         ChatViewModel(
@@ -736,6 +737,7 @@ private fun rememberChatViewModel(
             settingsRepository = settingsRepository,
             comfyUiRepository = comfyUiRepository,
             imageModelConfigRepository = imageModelConfigRepository,
+            toolRegistry = toolRegistry,
         )
     }
 }

@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.aichat.data.ai.AiMessage
 import com.aichat.data.ai.AiProviderConfig
 import com.aichat.data.ai.AiRepository
+import com.aichat.data.ai.tool.AiToolRegistry
 import com.aichat.data.api.ApiResult
 import com.aichat.data.chat.ChatSessionRepository
 import com.aichat.data.comfyui.ComfyUiRepository
@@ -72,6 +73,7 @@ class ChatViewModel(
     private val settingsRepository: SettingsRepository,
     private val comfyUiRepository: ComfyUiRepository,
     private val imageModelConfigRepository: ImageModelConfigRepository,
+    private val toolRegistry: AiToolRegistry,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ChatUiState())
@@ -575,10 +577,23 @@ class ChatViewModel(
                 AiMessage(role = msg.role, content = msg.content)
             })
 
+            // Check if provider supports tools
+            val supportsTools = aiRepository.supportsToolCalls(providerConfig)
+            val tools = if (supportsTools) {
+                toolRegistry.getDefinitions(
+                    com.aichat.data.ai.tool.ToolContext(characterName = _uiState.value.characterName)
+                )
+            } else emptyList()
+            val toolChoice = if (tools.isNotEmpty()) com.aichat.data.ai.ToolChoice.Auto else com.aichat.data.ai.ToolChoice.None
+
             streamingJob = viewModelScope.launch {
+                val toolAccumulator = mutableMapOf<Int, com.aichat.data.ai.AiToolCall>()
+
                 aiRepository.createStreamingCompletion(
                     config = providerConfig,
                     messages = history,
+                    tools = tools,
+                    toolChoice = toolChoice,
                 ).collect { result ->
                     when (result) {
                         is com.aichat.data.api.ApiResult.Success -> {
@@ -586,6 +601,23 @@ class ChatViewModel(
                             val content = chunk.contentDelta
                             val current = _uiState.value.streamingContent
                             _uiState.value = _uiState.value.copy(streamingContent = current + content)
+
+                            // Accumulate tool call deltas by index
+                            for (tc in chunk.toolCalls) {
+                                // Find index from arguments - we track by order
+                                val existing = toolAccumulator.values.find { it.name == tc.name && it.id == tc.id }
+                                if (existing != null) {
+                                    // Append arguments to existing call
+                                    val idx = toolAccumulator.entries.find { it.value === existing }!!.key
+                                    toolAccumulator[idx] = existing.copy(
+                                        arguments = existing.arguments + tc.arguments
+                                    )
+                                } else {
+                                    // Find a gap or add new entry
+                                    val idx = toolAccumulator.size
+                                    toolAccumulator[idx] = tc
+                                }
+                            }
 
                             if (chunk.finishReason == "stop" || chunk.finishReason == "length") {
                                 val fullContent = _uiState.value.streamingContent
@@ -604,6 +636,63 @@ class ChatViewModel(
                                     streamingContent = "",
                                 )
                                 streamingJob = null
+                            } else if (chunk.finishReason == "tool_calls" && toolAccumulator.isNotEmpty()) {
+                                // Tool calls detected: execute them via ToolCallCoordinator
+                                streamingJob = null
+
+                                val toolCalls = toolAccumulator.values.toList()
+                                val toolContext = com.aichat.data.ai.tool.ToolContext(
+                                    characterName = _uiState.value.characterName,
+                                )
+
+                                // Append assistant message with tool_calls to history
+                                history.add(
+                                    com.aichat.data.ai.AiMessage(
+                                        role = "assistant",
+                                        content = _uiState.value.streamingContent.ifBlank { null },
+                                        toolCalls = toolCalls,
+                                    )
+                                )
+
+                                // Execute each tool and append results
+                                 for (tc in toolCalls) {
+                                     val tool = toolRegistry.find(tc.name)
+                                    val toolResult = if (tool != null) {
+                                        tool.execute(tc, toolContext)
+                                    } else {
+                                        com.aichat.data.ai.tool.ToolResult.Error("Unknown tool: ${tc.name}")
+                                    }
+                                    history.add(
+                                        com.aichat.data.ai.AiMessage(
+                                            role = "tool",
+                                            content = when (toolResult) {
+                                                is com.aichat.data.ai.tool.ToolResult.Success -> toolResult.content
+                                                is com.aichat.data.ai.tool.ToolResult.Error -> "Error: ${toolResult.message}"
+                                                is com.aichat.data.ai.tool.ToolResult.Terminal -> toolResult.content
+                                            },
+                                            toolCallId = tc.id,
+                                        )
+                                    )
+
+                                    // If tool returned Terminal (e.g. voice), show it to user immediately
+                                    if (toolResult is com.aichat.data.ai.tool.ToolResult.Terminal) {
+                                        val terminalMsg = MessageEntity(
+                                            id = generateId(),
+                                            sessionId = resolvedSessionId,
+                                            role = "assistant",
+                                            content = toolResult.content,
+                                            senderName = _uiState.value.characterName,
+                                            timestamp = System.currentTimeMillis(),
+                                            voiceUri = toolResult.attachments.firstOrNull { it.type == "voice" }?.uri ?: "",
+                                        )
+                                        chatSessionRepository.insertMessage(terminalMsg)
+                                        updateSessionMeta(toolResult.content)
+                                    }
+                                }
+
+                                // Restart streaming with tool results appended
+                                _uiState.value = _uiState.value.copy(streamingContent = "")
+                                callAi()
                             }
                         }
                         is com.aichat.data.api.ApiResult.HttpError -> {

@@ -233,6 +233,17 @@ private fun OpenAiChatStreamResponse.toCompletionChunk(): AiCompletionChunk {
     return AiCompletionChunk(
         contentDelta = choice?.delta?.content.orEmpty(),
         finishReason = choice?.finishReason,
+        toolCalls = choice?.delta?.toolCalls?.mapNotNull { call ->
+            val fn = call.function ?: return@mapNotNull null
+            if (fn.name != null || fn.arguments != null) {
+                // We pass the delta data; the accumulator will merge chunks by index
+                AiToolCall(
+                    id = call.id ?: "",
+                    name = fn.name ?: "",
+                    arguments = fn.arguments ?: "",
+                )
+            } else null
+        }.orEmpty(),
         usage = AiUsage(
             promptTokens = usage?.promptTokens ?: 0,
             completionTokens = usage?.completionTokens ?: 0,

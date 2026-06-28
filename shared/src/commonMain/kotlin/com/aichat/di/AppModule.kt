@@ -9,6 +9,8 @@ import com.aichat.data.ai.XiaomiMimoProvider
 import com.aichat.data.ai.tool.AiToolRegistry
 import com.aichat.data.ai.tool.ToolCallCoordinator
 import com.aichat.data.ai.tool.VoiceSynthesisTool
+import com.aichat.data.ai.tool.WebSearchService
+import com.aichat.data.ai.tool.WebSearchTool
 import com.aichat.data.api.createPlatformHttpClient
 import com.aichat.data.character.CharacterRepository
 import com.aichat.data.chat.ChatSessionRepository
@@ -88,10 +90,12 @@ val appModule: Module = module {
     single { AiRepository(get(), get()) }
 
     // AI Tool System
+    single { WebSearchService(get()) }
+    single { WebSearchTool(get()) }
     single { VoiceSynthesisTool(get(), get()) }
     single {
         AiToolRegistry(
-            tools = listOf(get<VoiceSynthesisTool>()),
+            tools = listOf(get<WebSearchTool>(), get<VoiceSynthesisTool>()),
         )
     }
     single { ToolCallCoordinator(get(), get()) }

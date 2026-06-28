@@ -44,6 +44,7 @@ data class AiCompletion(
 data class AiCompletionChunk(
     val contentDelta: String = "",
     val finishReason: String? = null,
+    val toolCalls: List<AiToolCall> = emptyList(),
     val usage: AiUsage = AiUsage(),
 )
 
