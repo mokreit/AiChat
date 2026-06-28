@@ -9,10 +9,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -50,6 +53,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -66,6 +74,8 @@ import com.aichat.design.ChatBubble
 import com.aichat.design.ChatInputField
 import com.aichat.design.TypingIndicator
 import com.aichat.design.strings
+import io.ktor.client.call.body
+import io.ktor.client.request.get
 import org.koin.compose.koinInject
 
 /** Parse content segments: "dialogue" in quotes, *action* in asterisks */
@@ -148,6 +158,7 @@ fun ChatScreen(
     val scope = rememberCoroutineScope()
     var bgImageUrl by remember { mutableStateOf("") }
     var bgAlpha by remember { mutableFloatStateOf(0.3f) }
+    var bubbleAlpha by remember { mutableFloatStateOf(1.0f) }
     var characterAvatarUri by remember { mutableStateOf("") }
     var halfScreenMode by remember { mutableStateOf(false) }
 
@@ -163,6 +174,7 @@ fun ChatScreen(
         val char = characterRepository.getCharacterById(characterId)
         bgImageUrl = char?.backgroundImage ?: ""
         bgAlpha = char?.backgroundAlpha ?: 0.3f
+        bubbleAlpha = char?.bubbleAlpha ?: 1.0f
         characterAvatarUri = char?.avatarUri ?: ""
     }
 
@@ -377,22 +389,58 @@ fun ChatScreen(
                 val displayMessages = messages
 
                 items(displayMessages, key = { it.id }) { message ->
-                    ChatBubble(
-                        text = message.content,
-                        isUser = message.role == "user",
-                        isPlaying = uiState.playingMessageId == message.id,
-                        isSynthesizing = uiState.synthesizingMessageId == message.id,
-                        onPlayClick = if (message.role == "assistant") {
-                            { viewModel.playVoice(message.id, message.voiceAttachmentUri) }
-                        } else null,
-                        avatarName = if (message.role == "user") "" else uiState.characterName,
-                        avatarUri = if (message.role == "user") "" else characterAvatarUri,
-                        userAvatarUri = userAvatarUri ?: "",
-                        modifier = Modifier.combinedClickable(
-                            onClick = {},
-                            onLongClick = { selectedMessage = message },
-                        ),
-                    )
+                    var showImageViewer by remember { mutableStateOf(false) }
+                    var viewerImageBytes by remember { mutableStateOf<ByteArray?>(null) }
+                    var viewerImageBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
+                    val httpClient = koinInject<io.ktor.client.HttpClient>()
+
+                    if (message.content.isNotBlank() || message.imageUri != null) {
+                        ChatBubble(
+                            text = message.content,
+                            isUser = message.role == "user",
+                            bubbleAlpha = bubbleAlpha,
+                            isPlaying = uiState.playingMessageId == message.id,
+                            isSynthesizing = uiState.synthesizingMessageId == message.id,
+                            onPlayClick = if (message.role == "assistant") {
+                                { viewModel.playVoice(message.id, message.voiceAttachmentUri) }
+                            } else null,
+                            avatarName = if (message.role == "user") "" else uiState.characterName,
+                            avatarUri = if (message.role == "user") "" else characterAvatarUri,
+                            userAvatarUri = userAvatarUri ?: "",
+                            imageUri = message.imageUri,
+                            onImageClick = if (message.imageUri != null) {
+                                {
+                                    scope.launch {
+                                        try {
+                                            val bytes: ByteArray = httpClient.get(message.imageUri).body()
+                                            viewerImageBytes = bytes
+                                            viewerImageBitmap = com.aichat.platform.loadImageFromBytes(bytes)
+                                            showImageViewer = true
+                                        } catch (_: Exception) {}
+                                    }
+                                }
+                            } else null,
+                            onGenerateImage = if (message.role == "assistant" && message.imageUri == null && message.content.isNotBlank()) {
+                                { viewModel.generateImageManually(message.content) }
+                            } else null,
+                            onRegenerateImage = if (message.role == "assistant" && message.imageUri != null) {
+                                { viewModel.regenerateImage(message.id, message.content) }
+                            } else null,
+                            isGeneratingImage = uiState.generatingImage,
+                            modifier = Modifier.combinedClickable(
+                                onClick = {},
+                                onLongClick = { selectedMessage = message },
+                            ),
+                        )
+                    }
+                    // Full-screen image viewer for this message
+                    if (showImageViewer && viewerImageBitmap != null) {
+                        FullScreenImageViewer(
+                            imageBitmap = viewerImageBitmap!!,
+                            imageBytes = viewerImageBytes,
+                            onDismiss = { showImageViewer = false },
+                        )
+                    }
                 }
 
                 // Streaming content (after messages = appears at bottom)
@@ -425,6 +473,7 @@ fun ChatScreen(
                         ChatBubble(
                             text = uiState.streamingContent,
                             isUser = false,
+                            bubbleAlpha = bubbleAlpha,
                             avatarName = uiState.characterName,
                             avatarUri = characterAvatarUri,
                         )
@@ -535,6 +584,131 @@ fun ChatScreen(
 }
 
 @Composable
+private fun FullScreenImageViewer(
+    imageBitmap: ImageBitmap,
+    imageBytes: ByteArray?,
+    onDismiss: () -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    var saveMessage by remember { mutableStateOf<String?>(null) }
+    var scale by remember { mutableFloatStateOf(1f) }
+    var offsetX by remember { mutableFloatStateOf(0f) }
+    var offsetY by remember { mutableFloatStateOf(0f) }
+
+    androidx.compose.ui.window.Dialog(
+        onDismissRequest = {
+            onDismiss()
+            scale = 1f; offsetX = 0f; offsetY = 0f
+        },
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black)
+                .pointerInput(Unit) {
+                    detectTransformGestures { _, pan, zoom, _ ->
+                        scale = (scale * zoom).coerceIn(0.5f, 5f)
+                        offsetX += pan.x
+                        offsetY += pan.y
+                    }
+                }
+                .pointerInput(Unit) {
+                    detectTapGestures(
+                        onDoubleTap = {
+                            if (scale > 1.5f) {
+                                scale = 1f; offsetX = 0f; offsetY = 0f
+                            } else {
+                                scale = 3f
+                            }
+                        },
+                    )
+                },
+        ) {
+            // Image with zoom/pan
+            Image(
+                bitmap = imageBitmap,
+                contentDescription = null,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer(
+                        scaleX = scale,
+                        scaleY = scale,
+                        translationX = offsetX,
+                        translationY = offsetY,
+                    ),
+                contentScale = ContentScale.Fit,
+            )
+
+            // Close button (top-right)
+            IconButton(
+                onClick = {
+                    onDismiss()
+                    scale = 1f; offsetX = 0f; offsetY = 0f
+                },
+                modifier = Modifier.align(Alignment.TopEnd).padding(top = 40.dp, end = 16.dp),
+            ) {
+                Text("X", color = Color.White, fontSize = 20.sp)
+            }
+
+            // Save button (bottom-center)
+            Surface(
+                shape = RoundedCornerShape(24.dp),
+                color = Color.White.copy(alpha = 0.85f),
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 48.dp)
+                    .combinedClickable(
+                        onClick = {
+                            scope.launch {
+                                val bytes = imageBytes
+                                if (bytes != null) {
+                                    val file = java.io.File(
+                                        android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_PICTURES),
+                                        "AiChat_${System.currentTimeMillis()}.png"
+                                    )
+                                    try {
+                                        file.writeBytes(bytes)
+                                        saveMessage = "已保存到相册"
+                                    } catch (e: Exception) {
+                                        saveMessage = "保存失败: ${e.message}"
+                                    }
+                                }
+                            }
+                        },
+                        onLongClick = {},
+                    ),
+            ) {
+                Text(
+                    text = "保存图片",
+                    style = AiChatTypography.bodyMedium,
+                    color = Color.Black,
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
+                )
+            }
+
+            // Save toast
+            if (saveMessage != null) {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color.Black.copy(alpha = 0.7f),
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 100.dp),
+                ) {
+                    Text(
+                        text = saveMessage!!,
+                        style = AiChatTypography.bodySmall,
+                        color = Color.White,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun rememberChatViewModel(
     sessionId: String,
     characterId: String,
@@ -546,6 +720,8 @@ private fun rememberChatViewModel(
     val characterRepository = koinInject<com.aichat.data.character.CharacterRepository>()
     val ttsProviderRegistry = koinInject<com.aichat.data.voice.TtsProviderRegistry>()
     val settingsRepository = koinInject<com.aichat.data.settings.SettingsRepository>()
+    val comfyUiRepository = koinInject<com.aichat.data.comfyui.ComfyUiRepository>()
+    val imageModelConfigRepository = koinInject<com.aichat.data.model.ImageModelConfigRepository>()
 
     return androidx.lifecycle.viewmodel.compose.viewModel {
         ChatViewModel(
@@ -558,6 +734,8 @@ private fun rememberChatViewModel(
             audioPlayer = audioPlayer,
             ttsProviderRegistry = ttsProviderRegistry,
             settingsRepository = settingsRepository,
+            comfyUiRepository = comfyUiRepository,
+            imageModelConfigRepository = imageModelConfigRepository,
         )
     }
 }

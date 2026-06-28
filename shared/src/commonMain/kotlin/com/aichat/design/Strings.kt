@@ -146,6 +146,16 @@ sealed interface AppStrings {
     val zoomIn: String
     val zoomOut: String
     val preview: String
+
+    // ComfyUI
+    val characterAppearance: String
+    val comfyUi: String
+    val comfyUiSettings: String
+    val comfyUiServer: String
+    val workflowJson: String
+    val generateImage: String
+    val generating: String
+    val imageGenerated: String
 }
 
 object ZhStrings : AppStrings {
@@ -268,6 +278,14 @@ object ZhStrings : AppStrings {
     override val zoomIn = "放大"
     override val zoomOut = "缩小"
     override val preview = "预览"
+    override val characterAppearance = "角色外观"
+    override val comfyUi = "ComfyUI 生图"
+    override val comfyUiSettings = "ComfyUI 设置"
+    override val comfyUiServer = "ComfyUI 服务器"
+    override val workflowJson = "工作流 JSON"
+    override val generateImage = "生成图片"
+    override val generating = "生成中..."
+    override val imageGenerated = "图片已生成"
 }
 
 object EnStrings : AppStrings {
@@ -390,6 +408,14 @@ object EnStrings : AppStrings {
     override val zoomIn = "Zoom In"
     override val zoomOut = "Zoom Out"
     override val preview = "Preview"
+    override val characterAppearance = "Appearance"
+    override val comfyUi = "ComfyUI Image Gen"
+    override val comfyUiSettings = "ComfyUI Settings"
+    override val comfyUiServer = "ComfyUI Server"
+    override val workflowJson = "Workflow JSON"
+    override val generateImage = "Generate Image"
+    override val generating = "Generating..."
+    override val imageGenerated = "Image generated"
 }
 
 val LocalStrings: ProvidableCompositionLocal<AppStrings> = compositionLocalOf { ZhStrings }

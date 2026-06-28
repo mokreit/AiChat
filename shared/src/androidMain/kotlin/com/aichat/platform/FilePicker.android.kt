@@ -55,3 +55,15 @@ actual class FileSaver actual constructor() {
         }
     }
 }
+
+actual suspend fun pickJsonFile(): String? {
+    val launchPicker = AndroidActivityHelper.launchJsonPicker
+        ?: return null
+
+    return suspendCancellableCoroutine { continuation ->
+        AndroidActivityHelper.pendingJsonCallback = { content ->
+            continuation.resume(content)
+        }
+        launchPicker()
+    }
+}

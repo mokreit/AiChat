@@ -17,8 +17,15 @@ class CharacterRepository(private val characterDao: CharacterDao) {
 
     suspend fun ensureBuiltinCharacters() {
         for (character in DefaultCharacters.all) {
-            if (characterDao.getById(character.id) == null) {
+            val existing = characterDao.getById(character.id)
+            if (existing == null) {
                 characterDao.insert(character)
+            } else {
+                // Always update appearance and voiceDesignPrompt for built-in characters
+                characterDao.update(existing.copy(
+                    appearance = character.appearance,
+                    voiceDesignPrompt = character.voiceDesignPrompt
+                ))
             }
         }
     }

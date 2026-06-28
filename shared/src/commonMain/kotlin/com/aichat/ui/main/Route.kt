@@ -32,6 +32,12 @@ sealed interface Route {
     data object VoiceSettings : Route
 
     @Serializable
+    data object ComfyUiSettings : Route
+
+    @Serializable
+    data object ImageModelSettings : Route
+
+    @Serializable
     data object AboutSettings : Route
 
     @Serializable

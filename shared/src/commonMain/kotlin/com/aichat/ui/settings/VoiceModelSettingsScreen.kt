@@ -1,5 +1,6 @@
 package com.aichat.ui.settings
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -34,6 +35,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -245,58 +247,68 @@ private fun VoiceModelEditDialog(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text(s.name) },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                )
+                        value = name,
+                        onValueChange = { name = it },
+                        label = { Text(s.name) },
+                        placeholder = { Text("我的语音模型") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                    )
                 // Provider selector
                 val currentProvider = VOICE_PROVIDERS.find { it.id == provider } ?: VOICE_PROVIDERS.first()
                 OutlinedTextField(
-                    value = currentProvider.displayName,
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text(s.provider) },
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = false,
-                )
+                        value = currentProvider.displayName,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text(s.provider) },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = false,
+                        shape = RoundedCornerShape(12.dp),
+                    )
                 if (currentProvider.needEndpoint) {
                     OutlinedTextField(
-                        value = baseUrl,
-                        onValueChange = { baseUrl = it },
-                        label = { Text(s.apiHost) },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                    )
+                            value = baseUrl,
+                            onValueChange = { baseUrl = it },
+                            label = { Text(s.apiHost) },
+                            placeholder = { Text("https://api.example.com/v1") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp),
+                        )
                 }
                 if (currentProvider.needApiKey) {
                     OutlinedTextField(
-                        value = apiKey,
-                        onValueChange = { apiKey = it },
-                        label = { Text(s.apiKey) },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        visualTransformation = PasswordVisualTransformation(),
-                    )
+                            value = apiKey,
+                            onValueChange = { apiKey = it },
+                            label = { Text(s.apiKey) },
+                            placeholder = { Text("sk-...") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            visualTransformation = PasswordVisualTransformation(),
+                            shape = RoundedCornerShape(12.dp),
+                        )
                 }
                 if (currentProvider.needModel) {
                     OutlinedTextField(
-                        value = modelName,
-                        onValueChange = { modelName = it },
-                        label = { Text(s.modelName) },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                    )
+                            value = modelName,
+                            onValueChange = { modelName = it },
+                            label = { Text(s.modelName) },
+                            placeholder = { Text("tts-1") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp),
+                        )
                 }
                 OutlinedTextField(
-                    value = voiceId,
-                    onValueChange = { voiceId = it },
-                    label = { Text("Voice ID") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    placeholder = { Text("alloy, shimmer, nova...") },
-                )
+                        value = voiceId,
+                        onValueChange = { voiceId = it },
+                        label = { Text("Voice ID") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        placeholder = { Text("alloy, shimmer, nova...") },
+                        shape = RoundedCornerShape(12.dp),
+                    )
             }
         },
         confirmButton = {

@@ -66,6 +66,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.ktor.client.call.body
+import io.ktor.client.request.get
+import org.koin.compose.koinInject
 
 @Composable
 fun CharacterAvatar(
@@ -189,12 +192,18 @@ fun TypingIndicator(modifier: Modifier = Modifier) {
 fun ChatBubble(
     text: String,
     isUser: Boolean,
+    bubbleAlpha: Float = 1.0f,
     isPlaying: Boolean = false,
     isSynthesizing: Boolean = false,
     onPlayClick: (() -> Unit)? = null,
     avatarName: String = "",
     avatarUri: String = "",
     userAvatarUri: String = "",
+    imageUri: String? = null,
+    onImageClick: (() -> Unit)? = null,
+    onGenerateImage: (() -> Unit)? = null,
+    onRegenerateImage: (() -> Unit)? = null,
+    isGeneratingImage: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val darkTheme = LocalDarkTheme.current
@@ -214,6 +223,27 @@ fun ChatBubble(
         isUser -> null
         darkTheme -> BorderStroke(1.dp, AiChatColors.chatBubbleAssistantDarkBorder)
         else -> BorderStroke(1.dp, AiChatColors.chatBubbleAssistantBorder)
+    }
+
+    // Load image if provided
+    var imageBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
+    var imageLoading by remember { mutableStateOf(false) }
+    var imageLoadError by remember { mutableStateOf(false) }
+    val httpClient = koinInject<io.ktor.client.HttpClient>()
+
+    LaunchedEffect(imageUri) {
+        if (!imageUri.isNullOrBlank()) {
+            imageLoading = true
+            imageLoadError = false
+            try {
+                val bytes: ByteArray = httpClient.get(imageUri).body()
+                imageBitmap = com.aichat.platform.loadImageFromBytes(bytes)
+            } catch (_: Exception) {
+                imageLoadError = true
+            } finally {
+                imageLoading = false
+            }
+        }
     }
 
     Row(
@@ -242,7 +272,7 @@ fun ChatBubble(
                 bottomStart = if (isUser) 20.dp else 6.dp,
                 bottomEnd = if (isUser) 6.dp else 20.dp,
             ),
-            color = bubbleBg,
+            color = bubbleBg.copy(alpha = bubbleAlpha),
             border = bubbleBorder,
             shadowElevation = 0.dp,
             modifier = Modifier
@@ -250,6 +280,7 @@ fun ChatBubble(
                 .padding(vertical = 2.dp),
         ) {
             Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
+                // Text section (on top)
                 if (isUser) {
                     Text(
                         text = text,
@@ -273,21 +304,120 @@ fun ChatBubble(
                         style = AiChatTypography.bodyMedium,
                     )
                 }
-                if (onPlayClick != null) {
+                // Action buttons row (voice + image, right-aligned)
+                if (onPlayClick != null || (!isUser && (onGenerateImage != null || onRegenerateImage != null))) {
                     Spacer(modifier = Modifier.height(4.dp))
-                    IconButton(
-                        onClick = onPlayClick,
-                        modifier = Modifier.size(28.dp),
-                        enabled = !isSynthesizing,
+                    Row(
+                        modifier = Modifier.align(Alignment.End),
+                        horizontalArrangement = Arrangement.spacedBy(2.dp),
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        if (isPlaying || isSynthesizing) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(14.dp),
-                                strokeWidth = 2.dp,
-                                color = AiChatColors.voiceWave,
+                        // Regenerate image button (when image exists)
+                        if (onRegenerateImage != null && !imageUri.isNullOrBlank()) {
+                            IconButton(
+                                onClick = onRegenerateImage,
+                                modifier = Modifier.size(28.dp),
+                                enabled = !isGeneratingImage,
+                            ) {
+                                if (isGeneratingImage) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(13.dp),
+                                        strokeWidth = 1.5.dp,
+                                        color = AiChatColors.aiAccent,
+                                    )
+                                } else {
+                                    Icon(
+                                        Icons.Default.AutoAwesome,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(15.dp),
+                                        tint = AiChatColors.aiAccent,
+                                    )
+                                }
+                            }
+                        }
+                        // Generate image button (when no image)
+                        if (onGenerateImage != null && imageUri.isNullOrBlank()) {
+                            IconButton(
+                                onClick = onGenerateImage,
+                                modifier = Modifier.size(28.dp),
+                                enabled = !isGeneratingImage,
+                            ) {
+                                if (isGeneratingImage) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(13.dp),
+                                        strokeWidth = 1.5.dp,
+                                        color = AiChatColors.aiAccent,
+                                    )
+                                } else {
+                                    Icon(
+                                        Icons.Default.AutoAwesome,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(15.dp),
+                                        tint = AiChatColors.aiAccent,
+                                    )
+                                }
+                            }
+                        }
+                        // Voice playback button
+                        if (onPlayClick != null) {
+                            IconButton(
+                                onClick = onPlayClick,
+                                modifier = Modifier.size(28.dp),
+                                enabled = !isSynthesizing,
+                            ) {
+                                if (isPlaying || isSynthesizing) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(14.dp),
+                                        strokeWidth = 2.dp,
+                                        color = AiChatColors.voiceWave,
+                                    )
+                                } else {
+                                    Text("\u25B6", fontSize = 12.sp, color = AiChatColors.aiAccent)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Image section (on bottom)
+                if (!imageUri.isNullOrBlank()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    when {
+                        imageBitmap != null -> {
+                            Image(
+                                bitmap = imageBitmap!!,
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .then(
+                                        if (onImageClick != null) {
+                                            Modifier.clickable { onImageClick() }
+                                        } else {
+                                            Modifier
+                                        }
+                                    ),
+                                contentScale = ContentScale.FillWidth,
                             )
-                        } else {
-                            Text("\u25B6", fontSize = 12.sp, color = AiChatColors.aiAccent)
+                        }
+                        imageLoading -> {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(120.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(24.dp),
+                                    strokeWidth = 2.dp,
+                                )
+                            }
+                        }
+                        imageLoadError -> {
+                            Text(
+                                text = "图片加载失败",
+                                style = AiChatTypography.bodySmall,
+                                color = MaterialTheme.colorScheme.error,
+                            )
                         }
                     }
                 }

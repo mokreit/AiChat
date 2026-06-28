@@ -1,4 +1,4 @@
-﻿package com.aichat.ui.main
+package com.aichat.ui.main
 
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
@@ -13,6 +13,7 @@ import com.aichat.ui.chat.SessionListScreen
 import com.aichat.ui.settings.AboutSettingsScreen
 import com.aichat.ui.settings.AppearanceSettingsScreen
 import com.aichat.ui.settings.ModelSettingsScreen
+import com.aichat.ui.settings.ImageModelSettingsScreen
 import com.aichat.ui.settings.SettingsScreen
 import com.aichat.ui.settings.TextModelSettingsScreen
 import com.aichat.ui.settings.VoiceModelSettingsScreen
@@ -86,6 +87,7 @@ fun AppNavHost(navController: NavHostController) {
                 onBack = { navController.popBackStack() },
                 onTextModelClick = { navController.navigate(Route.TextModelSettings) },
                 onVoiceModelClick = { navController.navigate(Route.VoiceModelSettings) },
+                onImageModelClick = { navController.navigate(Route.ImageModelSettings) },
             )
         }
         composable<Route.TextModelSettings> {
@@ -105,6 +107,11 @@ fun AppNavHost(navController: NavHostController) {
         }
         composable<Route.VoiceSettings> {
             VoiceSettingsScreen(
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable<Route.ImageModelSettings> {
+            ImageModelSettingsScreen(
                 onBack = { navController.popBackStack() },
             )
         }

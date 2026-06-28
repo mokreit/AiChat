@@ -63,3 +63,26 @@ actual class FileSaver actual constructor() {
             }.start()
         }
 }
+
+actual suspend fun pickJsonFile(): String? = suspendCancellableCoroutine { cont ->
+    Thread {
+        try {
+            var result: String? = null
+            EventQueue.invokeAndWait {
+                val fileDialog = FileDialog(null as Frame?, "Select JSON File", FileDialog.LOAD)
+                fileDialog.setFilenameFilter { _, name ->
+                    name.lowercase().endsWith(".json")
+                }
+                fileDialog.isVisible = true
+                val dir = fileDialog.directory
+                val file = fileDialog.file
+                if (dir != null && file != null) {
+                    result = File(dir, file).readText()
+                }
+            }
+            cont.resume(result)
+        } catch (_: Exception) {
+            cont.resume(null)
+        }
+    }.start()
+}

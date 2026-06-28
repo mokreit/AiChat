@@ -5,6 +5,9 @@ import androidx.compose.ui.graphics.ImageBitmap
 /** Load an image from a file path, returns null if failed */
 expect fun loadImageFromFile(path: String): ImageBitmap?
 
+/** Load an image from encoded bytes (e.g., PNG/JPEG), returns null if failed */
+expect fun loadImageFromBytes(bytes: ByteArray): ImageBitmap?
+
 /**
  * Save an ImageBitmap to a file in PNG format.
  * Returns the saved file path, or null if failed.

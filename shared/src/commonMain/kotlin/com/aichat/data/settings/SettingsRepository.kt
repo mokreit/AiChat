@@ -26,6 +26,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         val NICKNAME = stringPreferencesKey("nickname")
         val AVATAR = stringPreferencesKey("avatar")
         val CONFIG_PRESETS = stringSetPreferencesKey("config_presets")
+        val AUTO_GENERATE_IMAGE = booleanPreferencesKey("auto_generate_image")
     }
 
     val defaultModelConfigId: Flow<String?> = dataStore.data.map { it[Keys.DEFAULT_MODEL_CONFIG_ID] }
@@ -42,6 +43,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
     val avatar: Flow<String?> = dataStore.data.map { it[Keys.AVATAR] }
     val themeMode: Flow<String> = dataStore.data.map { it[Keys.THEME_MODE] ?: "system" }
     val configPresets: Flow<Set<String>> = dataStore.data.map { it[Keys.CONFIG_PRESETS] ?: emptySet() }
+    val autoGenerateImage: Flow<Boolean> = dataStore.data.map { it[Keys.AUTO_GENERATE_IMAGE] ?: false }
 
     suspend fun setDefaultModelConfigId(id: String) {
         dataStore.edit { it[Keys.DEFAULT_MODEL_CONFIG_ID] = id }
@@ -107,5 +109,9 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
             val current = prefs[Keys.CONFIG_PRESETS] ?: emptySet()
             prefs[Keys.CONFIG_PRESETS] = current - presetJson
         }
+    }
+
+    suspend fun setAutoGenerateImage(enabled: Boolean) {
+        dataStore.edit { it[Keys.AUTO_GENERATE_IMAGE] = enabled }
     }
 }

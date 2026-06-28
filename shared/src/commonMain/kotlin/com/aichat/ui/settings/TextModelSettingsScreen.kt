@@ -1,5 +1,6 @@
 package com.aichat.ui.settings
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -7,11 +8,14 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -30,6 +34,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -39,8 +44,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -52,9 +55,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.aichat.data.database.entity.ModelConfigEntity
 import com.aichat.data.model.ModelConfigRepository
 import com.aichat.data.ai.AiRepository
@@ -80,6 +83,7 @@ val TEXT_PROVIDERS = listOf(
     TextProvider("doubao", "豆包", "https://ark.cn-beijing.volces.com/api/v3", 0xFFFF6A00),
     TextProvider("moonshot", "Moonshot", "https://api.moonshot.cn/v1", 0xFF000000),
     TextProvider("glm", "智谱 GLM", "https://open.bigmodel.cn/api/paas/v4", 0xFF3366FF),
+    TextProvider("lmstudio", "LM Studio", "http://localhost:1234/v1", 0xFF6366F1),
     TextProvider("custom-text", "自定义", "", 0xFF999999),
 )
 
@@ -116,16 +120,32 @@ fun TextModelSettingsScreen(
     }
 
     Scaffold(
+        containerColor = Color.White,
         topBar = {
-            TopAppBar(
-                title = { Text(s.textModel, style = AiChatTypography.titleLarge.copy(fontSize = 20.sp)) },
-                navigationIcon = {
+            Surface(
+                color = Color.White,
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE5E7EB)),
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding())
+                        .padding(horizontal = 8.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = s.back, tint = Color(0xFF374151))
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White),
-            )
+                    Spacer(modifier = Modifier.weight(1f))
+                    Text(
+                        text = s.textModel,
+                        style = AiChatTypography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                        color = Color(0xFF111827),
+                    )
+                    Spacer(modifier = Modifier.weight(1f))
+                    Spacer(modifier = Modifier.size(40.dp))
+                }
+            }
         },
         floatingActionButton = {
             FloatingActionButton(onClick = { showAddDialog = true }) {
@@ -285,8 +305,10 @@ private fun TextModelEditDialog(
                     value = name,
                     onValueChange = { name = it },
                     label = { Text(s.name) },
+                    placeholder = { Text("我的模型") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
                 )
                 // Provider selector
                 val currentProvider = TEXT_PROVIDERS.find { it.id == provider } ?: TEXT_PROVIDERS.first()
@@ -299,21 +321,26 @@ private fun TextModelEditDialog(
                         .fillMaxWidth()
                         .clickable { showProviderPicker = true },
                     enabled = false,
+                    shape = RoundedCornerShape(12.dp),
                 )
                 OutlinedTextField(
                     value = baseUrl,
                     onValueChange = { baseUrl = it },
                     label = { Text(s.apiHost) },
+                    placeholder = { Text("https://api.example.com/v1") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
                 )
                 OutlinedTextField(
                     value = apiKey,
                     onValueChange = { apiKey = it },
                     label = { Text(s.apiKey) },
+                    placeholder = { Text("sk-...") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     visualTransformation = PasswordVisualTransformation(),
+                    shape = RoundedCornerShape(12.dp),
                 )
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -324,8 +351,10 @@ private fun TextModelEditDialog(
                         value = modelName,
                         onValueChange = { modelName = it },
                         label = { Text(s.modelName) },
+                        placeholder = { Text("gpt-4o") },
                         modifier = Modifier.weight(1f),
                         singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
                     )
                     OutlinedButton(
                         onClick = {
@@ -358,6 +387,7 @@ private fun TextModelEditDialog(
                             }
                         },
                         enabled = baseUrl.isNotBlank() && !isFetchingModels,
+                        shape = RoundedCornerShape(12.dp),
                     ) {
                         Text(if (isFetchingModels) s.fetchingModels else s.fetchModels)
                     }
@@ -383,7 +413,7 @@ private fun TextModelEditDialog(
                         )
                     )
                 },
-                enabled = baseUrl.isNotBlank() && apiKey.isNotBlank() && modelName.isNotBlank(),
+                enabled = baseUrl.isNotBlank() && (apiKey.isNotBlank() || provider == "lmstudio") && modelName.isNotBlank(),
             ) { Text(s.save) }
         },
         dismissButton = {
@@ -411,22 +441,32 @@ private fun ProviderPickerDialog(
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
-                providers.forEach { provider ->
+                providers.forEachIndexed { index, provider ->
+                    if (provider.id == "custom-text" && index > 0) {
+                        HorizontalDivider(color = Color(0xFFE5E7EB), thickness = 1.dp)
+                    }
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .then(
-                                if (provider.id == currentProviderId) {
-                                    Modifier.background(MaterialTheme.colorScheme.primaryContainer, MaterialTheme.shapes.small)
-                                } else {
-                                    Modifier
-                                }
-                            )
                             .clickable { onSelect(provider) }
-                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Column(modifier = Modifier.weight(1f)) {
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(CircleShape)
+                                .background(Color(provider.color).copy(alpha = 0.2f)),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                text = provider.name.take(1),
+                                style = AiChatTypography.titleMedium,
+                                color = Color(provider.color),
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
                             Text(
                                 text = provider.name,
                                 style = AiChatTypography.bodyLarge,
@@ -442,7 +482,10 @@ private fun ProviderPickerDialog(
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text(s.cancel) } },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(s.cancel) }
+        },
     )
 }
 

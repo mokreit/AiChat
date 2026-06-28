@@ -15,6 +15,7 @@ import com.aichat.platform.AndroidActivityHelper
 class MainActivity : ComponentActivity() {
     private lateinit var imagePickerLauncher: ActivityResultLauncher<String>
     private lateinit var audioPermissionLauncher: ActivityResultLauncher<String>
+    private lateinit var jsonPickerLauncher: ActivityResultLauncher<Array<String>>
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -48,11 +49,35 @@ class MainActivity : ComponentActivity() {
             AndroidActivityHelper.audioPermissionCallback = null
         }
 
+        // Register JSON file picker launcher
+        jsonPickerLauncher = registerForActivityResult(
+            ActivityResultContracts.OpenDocument()
+        ) { uri ->
+            if (uri != null) {
+                try {
+                    contentResolver.takePersistableUriPermission(
+                        uri, Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    )
+                } catch (_: Exception) {}
+                // Read file content
+                val content = try {
+                    contentResolver.openInputStream(uri)?.use { it.readBytes().toString(Charsets.UTF_8) }
+                } catch (_: Exception) { null }
+                AndroidActivityHelper.pendingJsonCallback?.invoke(content)
+            } else {
+                AndroidActivityHelper.pendingJsonCallback?.invoke(null)
+            }
+            AndroidActivityHelper.pendingJsonCallback = null
+        }
+
         // Set the launcher lambda for shared module to use
         AndroidActivityHelper.launchImagePicker = { imagePickerLauncher.launch("image/*") }
         AndroidActivityHelper.requestAudioPermission = { callback ->
             AndroidActivityHelper.audioPermissionCallback = callback
             audioPermissionLauncher.launch(android.Manifest.permission.RECORD_AUDIO)
+        }
+        AndroidActivityHelper.launchJsonPicker = {
+            jsonPickerLauncher.launch(arrayOf("application/json", "text/plain"))
         }
 
         enableEdgeToEdge()

@@ -50,7 +50,7 @@ class OpenAiCompatibleProvider(
     override suspend fun getModels(config: AiProviderConfig): ApiResult<List<String>> {
         return apiCall {
             val response: OpenAiModelsResponse = httpClient.get("${config.apiHost.normalizedBaseUrl()}models") {
-                bearerAuth(config.apiKey.trim())
+                if (config.apiKey.isNotBlank()) bearerAuth(config.apiKey.trim())
             }.body()
             response.data
                 .map { it.id.trim() }
@@ -66,7 +66,7 @@ class OpenAiCompatibleProvider(
     ): ApiResult<AiCompletion> {
         val apiResult = apiCall {
             httpClient.post("${config.apiHost.normalizedBaseUrl()}chat/completions") {
-                bearerAuth(config.apiKey.trim())
+                if (config.apiKey.isNotBlank()) bearerAuth(config.apiKey.trim())
                 contentType(ContentType.Application.Json)
                 setBody(json.encodeToString(request.toOpenAiRequest()))
             }.body<OpenAiChatResponse>()
@@ -85,7 +85,7 @@ class OpenAiCompatibleProvider(
     ): Flow<ApiResult<AiCompletionChunk>> = flow {
         try {
             httpClient.preparePost("${config.apiHost.normalizedBaseUrl()}chat/completions") {
-                bearerAuth(config.apiKey.trim())
+                if (config.apiKey.isNotBlank()) bearerAuth(config.apiKey.trim())
                 contentType(ContentType.Application.Json)
                 setBody(json.encodeToString(request.toOpenAiRequest(stream = true)))
             }.execute { response ->

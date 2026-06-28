@@ -12,8 +12,10 @@ import com.aichat.data.ai.tool.VoiceSynthesisTool
 import com.aichat.data.api.createPlatformHttpClient
 import com.aichat.data.character.CharacterRepository
 import com.aichat.data.chat.ChatSessionRepository
+import com.aichat.data.comfyui.ComfyUiRepository
 import com.aichat.data.database.AppDatabase
 import com.aichat.data.database.getRoomDatabase
+import com.aichat.data.model.ImageModelConfigRepository
 import com.aichat.data.model.ModelConfigRepository
 import com.aichat.data.platform.KmpFileManager
 import com.aichat.data.settings.SettingsRepository
@@ -42,6 +44,8 @@ val appModule: Module = module {
     single { get<AppDatabase>().storyDao() }
     single { get<AppDatabase>().modelConfigDao() }
     single { get<AppDatabase>().voiceConfigDao() }
+    single { get<AppDatabase>().comfyUiConfigDao() }
+    single { get<AppDatabase>().imageModelConfigDao() }
 
     // Repositories
     single { CharacterRepository(get()) }
@@ -49,6 +53,8 @@ val appModule: Module = module {
     single { StoryRepository(get()) }
     single { ModelConfigRepository(get()) }
     single { VoiceConfigRepository(get()) }
+    single { ComfyUiRepository(get(), get()) }
+    single { ImageModelConfigRepository(get()) }
     single { SettingsRepository(createDataStore()) }
 
     // AI Engine
@@ -74,6 +80,7 @@ val appModule: Module = module {
                 "moonshot" to OpenAiCompatibleProvider.Id,
                 "glm" to OpenAiCompatibleProvider.Id,
                 "custom-text" to OpenAiCompatibleProvider.Id,
+                "lmstudio" to OpenAiCompatibleProvider.Id,
                 "qwen" to AliCompatibleProvider.Id,
             ),
         )

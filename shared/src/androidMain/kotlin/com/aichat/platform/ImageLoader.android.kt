@@ -20,6 +20,15 @@ actual fun loadImageFromFile(path: String): ImageBitmap? {
     }
 }
 
+actual fun loadImageFromBytes(bytes: ByteArray): ImageBitmap? {
+    return try {
+        val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return null
+        bitmap.asImageBitmap()
+    } catch (_: Exception) {
+        null
+    }
+}
+
 actual fun saveImageBitmap(bitmap: ImageBitmap, filename: String): String? {
     return try {
         val context = AndroidAppContext.context

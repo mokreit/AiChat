@@ -7,8 +7,10 @@ import com.aichat.data.ai.AiProviderConfig
 import com.aichat.data.ai.AiRepository
 import com.aichat.data.api.ApiResult
 import com.aichat.data.chat.ChatSessionRepository
+import com.aichat.data.comfyui.ComfyUiRepository
 import com.aichat.data.database.entity.ChatSessionEntity
 import com.aichat.data.database.entity.MessageEntity
+import com.aichat.data.model.ImageModelConfigRepository
 import com.aichat.data.model.ModelConfigRepository
 import com.aichat.data.settings.SettingsRepository
 import com.aichat.data.voice.AudioPlayer
@@ -30,13 +32,16 @@ data class MessageUi(
     val senderName: String = "",
     val voiceAttachmentUri: String? = null,
     val voiceDurationMs: Long? = null,
+    val imageUri: String? = null,
 )
 
 data class ChatUiState(
     val characterName: String = "",
+    val characterAppearance: String = "",
     val characterFirstMessage: String = "",
     val systemPrompt: String = "",
     val modelConfigId: String = "",
+    val imageModelConfigId: String = "",
     val ttsProviderId: String = "",
     val voiceId: String = "",
     val voiceApiEndpoint: String = "",
@@ -47,6 +52,7 @@ data class ChatUiState(
     val inputText: String = "",
     val isStreaming: Boolean = false,
     val streamingContent: String = "",
+    val generatingImage: Boolean = false,
     val playingMessageId: String? = null,
     val synthesizingMessageId: String? = null,
     val error: String? = null,
@@ -64,6 +70,8 @@ class ChatViewModel(
     private val audioPlayer: AudioPlayer,
     private val ttsProviderRegistry: TtsProviderRegistry,
     private val settingsRepository: SettingsRepository,
+    private val comfyUiRepository: ComfyUiRepository,
+    private val imageModelConfigRepository: ImageModelConfigRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ChatUiState())
@@ -84,9 +92,11 @@ class ChatViewModel(
                 val prompt = buildSystemPrompt(char)
                 _uiState.value = _uiState.value.copy(
                     characterName = char.name,
+                    characterAppearance = char.appearance,
                     characterFirstMessage = char.firstMessage,
                     systemPrompt = prompt,
                     modelConfigId = char.modelConfigId,
+                    imageModelConfigId = char.imageModelConfigId,
                     ttsProviderId = char.ttsProviderId,
                     voiceId = char.voiceId,
                     voiceApiEndpoint = char.voiceApiEndpoint,
@@ -319,6 +329,140 @@ class ChatViewModel(
             chatSessionRepository.insertMessage(userMessage)
             updateSessionMeta(text)
             callAi()
+            // Auto-generate image only if setting is enabled
+            val autoGen = settingsRepository.autoGenerateImage.firstOrNull() ?: false
+            if (autoGen) {
+                tryGenerateImage(text)
+            }
+        }
+    }
+
+    fun generateImageManually(prompt: String = "") {
+        viewModelScope.launch {
+            val text = prompt.ifBlank {
+                _uiState.value.messages.lastOrNull { it.role == "user" }?.content ?: ""
+            }
+            if (text.isBlank()) return@launch
+            tryGenerateImage(text)
+        }
+    }
+
+    fun regenerateImage(messageId: String, prompt: String = "") {
+        viewModelScope.launch {
+            // Clear the existing image from the message
+            val msg = _uiState.value.messages.find { it.id == messageId }
+            if (msg != null) {
+                val entity = MessageEntity(
+                    id = msg.id,
+                    sessionId = resolvedSessionId,
+                    role = msg.role,
+                    content = msg.content,
+                    senderName = msg.senderName,
+                    timestamp = System.currentTimeMillis(),
+                    voiceUri = msg.voiceAttachmentUri ?: "",
+                    imageUri = "",
+                )
+                chatSessionRepository.updateMessage(entity)
+            }
+            tryGenerateImage(prompt)
+        }
+    }
+
+    private suspend fun tryGenerateImage(userMessage: String) {
+        // Use character's image model config, fall back to default
+        val imageModelConfigId = _uiState.value.imageModelConfigId
+        val config = if (imageModelConfigId.isNotBlank()) {
+            imageModelConfigRepository.getConfigById(imageModelConfigId)
+        } else {
+            imageModelConfigRepository.getDefaultConfig()
+        } ?: return
+
+        _uiState.value = _uiState.value.copy(generatingImage = true)
+
+        // Generate invisible action description via AI
+        val actionDescription = generateActionDescription()
+        val negativePrompt = config.negativePrompt
+
+        val appearance = _uiState.value.characterAppearance
+        val prefix = config.positivePromptPrefix
+
+        val bodyPrompt = if (appearance.isNotBlank() && actionDescription.isNotBlank()) {
+            "$appearance, $actionDescription"
+        } else if (appearance.isNotBlank()) {
+            appearance
+        } else if (actionDescription.isNotBlank()) {
+            actionDescription
+        } else {
+            userMessage
+        }
+
+        val imagePrompt = if (prefix.isNotBlank()) {
+            "$prefix, $bodyPrompt"
+        } else {
+            bodyPrompt
+        }
+
+        comfyUiRepository.generateImage(
+            com.aichat.data.database.entity.ComfyUiConfigEntity(
+                id = config.id,
+                serverUrl = config.serverUrl,
+                workflowJson = config.workflowJson,
+                negativePrompt = config.negativePrompt,
+                positivePromptPrefix = config.positivePromptPrefix,
+            ),
+            imagePrompt,
+            negativePrompt,
+        ).collect { result ->
+            when (result) {
+                is ApiResult.Success -> {
+                    val imageUrl = result.value
+                    // Attach image to the last assistant message instead of creating a new one
+                    val lastAssistantMsg = _uiState.value.messages.lastOrNull { it.role == "assistant" }
+                    if (lastAssistantMsg != null) {
+                        val entity = MessageEntity(
+                            id = lastAssistantMsg.id,
+                            sessionId = resolvedSessionId,
+                            role = lastAssistantMsg.role,
+                            content = lastAssistantMsg.content,
+                            senderName = lastAssistantMsg.senderName,
+                            timestamp = System.currentTimeMillis(),
+                            voiceUri = lastAssistantMsg.voiceAttachmentUri ?: "",
+                            imageUri = imageUrl,
+                        )
+                        chatSessionRepository.updateMessage(entity)
+                    } else {
+                        val imageMessage = MessageEntity(
+                            id = generateId(),
+                            sessionId = resolvedSessionId,
+                            role = "assistant",
+                            content = "",
+                            senderName = _uiState.value.characterName,
+                            timestamp = System.currentTimeMillis(),
+                            imageUri = imageUrl,
+                        )
+                        chatSessionRepository.insertMessage(imageMessage)
+                    }
+                    _uiState.value = _uiState.value.copy(generatingImage = false)
+                }
+                is ApiResult.NetworkError -> {
+                    _uiState.value = _uiState.value.copy(
+                        generatingImage = false,
+                        error = "ComfyUI: ${result.message}",
+                    )
+                }
+                is ApiResult.HttpError -> {
+                    _uiState.value = _uiState.value.copy(
+                        generatingImage = false,
+                        error = "ComfyUI HTTP ${result.statusCode}: ${result.message}",
+                    )
+                }
+                is ApiResult.UnexpectedError -> {
+                    _uiState.value = _uiState.value.copy(
+                        generatingImage = false,
+                        error = "ComfyUI: ${result.message}",
+                    )
+                }
+            }
         }
     }
 
@@ -608,6 +752,41 @@ class ChatViewModel(
         }
     }
 
+    private suspend fun generateActionDescription(): String {
+        val state = _uiState.value
+        val configId = state.modelConfigId
+        val config = if (configId.isNotBlank()) {
+            modelConfigRepository.getConfigById(configId)
+        } else {
+            modelConfigRepository.getDefaultConfig()
+        } ?: return ""
+
+        val providerConfig = AiProviderConfig(
+            providerId = config.provider,
+            apiHost = config.baseUrl,
+            apiKey = config.apiKey,
+            model = config.modelName,
+        )
+
+        val history = mutableListOf<AiMessage>()
+        history.add(AiMessage(role = "system", content =
+            "Based on the conversation, describe the character's current action, pose, and expression in English for image generation. " +
+            "Do NOT describe appearance (hair, eyes, clothing). Only describe actions, pose, facial expression, and gestures. " +
+            "Use comma-separated tags. Be concise. Example: \"sitting at a desk, smiling, looking at viewer, hand on chin\". " +
+            "Output ONLY the tags, nothing else."
+        ))
+        val recentMessages = state.messages.takeLast(6)
+        for (msg in recentMessages) {
+            history.add(AiMessage(role = msg.role, content = msg.content))
+        }
+        history.add(AiMessage(role = "user", content = "Describe the character's current action and pose in English tags."))
+
+        return when (val result = aiRepository.createChatCompletion(config = providerConfig, messages = history)) {
+            is ApiResult.Success -> result.value.message.content?.trim() ?: ""
+            else -> ""
+        }
+    }
+
     override fun onCleared() {
         super.onCleared()
         streamingJob?.cancel()
@@ -622,4 +801,5 @@ private fun MessageEntity.toUi() = MessageUi(
     content = content,
     senderName = senderName,
     voiceAttachmentUri = voiceUri.ifBlank { null },
+    imageUri = imageUri.ifBlank { null },
 )

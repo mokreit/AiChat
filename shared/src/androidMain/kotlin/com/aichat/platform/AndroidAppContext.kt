@@ -30,4 +30,8 @@ object AndroidActivityHelper {
     // Lambda that requests audio permission (set by Activity)
     var requestAudioPermission: ((callback: (Boolean) -> Unit) -> Unit)? = null
     var audioPermissionCallback: ((Boolean) -> Unit)? = null
+
+    // Lambda that launches JSON file picker (set by Activity)
+    var launchJsonPicker: (() -> Unit)? = null
+    var pendingJsonCallback: ((String?) -> Unit)? = null
 }

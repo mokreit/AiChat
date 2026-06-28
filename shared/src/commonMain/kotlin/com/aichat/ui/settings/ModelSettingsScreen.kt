@@ -1,6 +1,7 @@
 package com.aichat.ui.settings
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -51,6 +52,7 @@ fun ModelSettingsScreen(
     onBack: () -> Unit,
     onTextModelClick: () -> Unit,
     onVoiceModelClick: () -> Unit,
+    onImageModelClick: () -> Unit = {},
     settingsRepository: SettingsRepository = koinInject(),
     ttsProviderRegistry: TtsProviderRegistry = koinInject(),
 ) {
@@ -118,6 +120,12 @@ fun ModelSettingsScreen(
                             showSttDialog = true
                         },
                     )
+                    HorizontalDivider(color = Color(0xFFE5E7EB), thickness = 1.dp)
+                    SettingItem(
+                        title = "生图模型",
+                        subtitle = "管理生图模型配置（ComfyUI、SiliconFlow、DALL-E 等）",
+                        onClick = onImageModelClick,
+                    )
                 }
             }
         }
@@ -128,7 +136,7 @@ fun ModelSettingsScreen(
             onDismissRequest = { showSttDialog = false },
             title = { Text("语音识别API (Whisper)") },
             text = {
-                Column(verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     androidx.compose.material3.OutlinedTextField(
                          value = sttHost,
                          onValueChange = { sttHost = it },
@@ -136,17 +144,19 @@ fun ModelSettingsScreen(
                          placeholder = { Text("https://api.openai.com") },
                          modifier = Modifier.fillMaxWidth(),
                          singleLine = true,
+                         shape = RoundedCornerShape(12.dp),
                      )
-                     androidx.compose.material3.OutlinedTextField(
+                    androidx.compose.material3.OutlinedTextField(
                          value = sttKey,
                          onValueChange = { sttKey = it },
                          label = { Text("API Key") },
                          placeholder = { Text("sk-...") },
                          modifier = Modifier.fillMaxWidth(),
                          singleLine = true,
+                         shape = RoundedCornerShape(12.dp),
                      )
-                }
-            },
+                    }
+                },
             confirmButton = {
                 androidx.compose.material3.TextButton(onClick = {
                     scope.launch {

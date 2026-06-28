@@ -1,4 +1,4 @@
-﻿﻿package com.aichat.ui.character
+package com.aichat.ui.character
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -58,6 +58,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.material3.Surface
 import com.aichat.data.character.CharacterRepository
 import com.aichat.data.database.entity.CharacterEntity
+import com.aichat.data.model.ImageModelConfigRepository
 import com.aichat.data.model.ModelConfigRepository
 import com.aichat.data.voice.VoiceConfigRepository
 import com.aichat.design.AiChatTypography
@@ -77,6 +78,7 @@ fun CharacterEditScreen(
     characterRepository: CharacterRepository = koinInject(),
     modelConfigRepository: ModelConfigRepository = koinInject(),
     voiceConfigRepository: VoiceConfigRepository = koinInject(),
+    imageModelConfigRepository: ImageModelConfigRepository = koinInject(),
 ) {
     val s = strings()
     val scope = rememberCoroutineScope()
@@ -87,10 +89,13 @@ fun CharacterEditScreen(
     var backgroundImage by remember { mutableStateOf("") }
     var firstMessage by remember { mutableStateOf("") }
     var systemPrompt by remember { mutableStateOf("") }
+    var appearance by remember { mutableStateOf("") }
     var voiceId by remember { mutableStateOf("") }
     var modelConfigId by remember { mutableStateOf("") }
     var voiceConfigId by remember { mutableStateOf("") }
+    var imageModelConfigId by remember { mutableStateOf("") }
     var backgroundAlpha by remember { mutableFloatStateOf(0.3f) }
+    var bubbleAlpha by remember { mutableFloatStateOf(1.0f) }
     var nameError by remember { mutableStateOf(false) }
     var originalCreatedAt by remember { mutableStateOf(0L) }
 
@@ -101,6 +106,7 @@ fun CharacterEditScreen(
 
     val modelConfigs by modelConfigRepository.getAllConfigs().collectAsState(initial = emptyList())
     val voiceConfigs by voiceConfigRepository.getAllConfigs().collectAsState(initial = emptyList())
+    val imageModelConfigs by imageModelConfigRepository.getAllConfigs().collectAsState(initial = emptyList())
 
     if (isEdit) {
         val characters by characterRepository.getAllCharacters().collectAsState(initial = emptyList())
@@ -112,10 +118,13 @@ fun CharacterEditScreen(
                 backgroundImage = it.backgroundImage
                 firstMessage = it.firstMessage
                 systemPrompt = it.systemPrompt
+                appearance = it.appearance
                 voiceId = it.voiceId
                 modelConfigId = it.modelConfigId
                 voiceConfigId = it.voiceConfigId
+                imageModelConfigId = it.imageModelConfigId
                 backgroundAlpha = it.backgroundAlpha
+                bubbleAlpha = it.bubbleAlpha
                 originalCreatedAt = it.createdAt
             }
         }
@@ -301,8 +310,56 @@ fun CharacterEditScreen(
                             textStyle = AiChatTypography.bodySmall,
                         )
                     }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = "气泡透明度：${"%.0f".format(bubbleAlpha * 100)}%",
+                        style = AiChatTypography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                        color = Color(0xFF9CA3AF),
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Slider(
+                            value = bubbleAlpha,
+                            onValueChange = { bubbleAlpha = it },
+                            valueRange = 0f..1f,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        OutlinedTextField(
+                            value = "%.0f".format(bubbleAlpha * 100),
+                            onValueChange = { str ->
+                                str.filter { it.isDigit() }.toIntOrNull()?.let { pct ->
+                                    bubbleAlpha = (pct.coerceIn(0, 100) / 100f)
+                                }
+                            },
+                            modifier = Modifier.width(64.dp),
+                            singleLine = true,
+                            suffix = { Text("%", style = AiChatTypography.bodySmall) },
+                            textStyle = AiChatTypography.bodySmall,
+                        )
+                    }
                 }
             }
+
+            // Appearance
+            OutlinedTextField(
+                value = appearance,
+                onValueChange = { appearance = it },
+                label = { Text(s.characterAppearance) },
+                modifier = Modifier.fillMaxWidth(),
+                minLines = 2,
+                maxLines = 4,
+                shape = RoundedCornerShape(12.dp),
+                colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color(0xFF000000),
+                    unfocusedBorderColor = Color(0xFFE5E7EB),
+                    cursorColor = Color(0xFF000000),
+                    focusedLabelColor = Color(0xFF000000),
+                ),
+            )
 
             // Name
             OutlinedTextField(
@@ -442,6 +499,49 @@ fun CharacterEditScreen(
                 }
             }
 
+            // Image model config selector
+            run {
+                var imgModelMenuExpanded by remember { mutableStateOf(false) }
+                val selectedImgModelName = imageModelConfigs.find { it.id == imageModelConfigId }?.let {
+                    it.name.ifBlank { it.modelName.ifBlank { it.serverUrl } }
+                } ?: s.notConfigured
+
+                ExposedDropdownMenuBox(
+                    expanded = imgModelMenuExpanded,
+                    onExpandedChange = { imgModelMenuExpanded = !imgModelMenuExpanded },
+                ) {
+                    OutlinedTextField(
+                        value = selectedImgModelName,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("生图模型") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = imgModelMenuExpanded) },
+                        modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable),
+                    )
+                    ExposedDropdownMenu(
+                        expanded = imgModelMenuExpanded,
+                        onDismissRequest = { imgModelMenuExpanded = false },
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text(s.notConfigured) },
+                            onClick = {
+                                imageModelConfigId = ""
+                                imgModelMenuExpanded = false
+                            },
+                        )
+                        imageModelConfigs.forEach { config ->
+                            DropdownMenuItem(
+                                text = { Text(config.name.ifBlank { config.modelName.ifBlank { config.serverUrl } }) },
+                                onClick = {
+                                    imageModelConfigId = config.id
+                                    imgModelMenuExpanded = false
+                                },
+                            )
+                        }
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.height(8.dp))
 
             Button(
@@ -458,15 +558,18 @@ fun CharacterEditScreen(
                             avatarUri = avatarUri,
                             backgroundImage = backgroundImage,
                             backgroundAlpha = backgroundAlpha,
+                            bubbleAlpha = bubbleAlpha,
                             description = "",
                             personality = "",
                             scenario = "",
                             firstMessage = firstMessage,
                             systemPrompt = systemPrompt,
+                            appearance = appearance,
                             voiceDesignPrompt = "",
                             voiceId = "",
                             voiceConfigId = voiceConfigId,
                             modelConfigId = modelConfigId,
+                            imageModelConfigId = imageModelConfigId,
                             createdAt = if (isEdit) originalCreatedAt else now,
                             updatedAt = now,
                         )

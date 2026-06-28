@@ -17,6 +17,14 @@ actual fun loadImageFromFile(path: String): ImageBitmap? {
     }
 }
 
+actual fun loadImageFromBytes(bytes: ByteArray): ImageBitmap? {
+    return try {
+        SkiaImage.makeFromEncoded(bytes).toComposeImageBitmap()
+    } catch (_: Exception) {
+        null
+    }
+}
+
 actual fun saveImageBitmap(bitmap: ImageBitmap, filename: String): String? {
     return try {
         val dir = java.io.File(System.getProperty("user.home"), ".aichat/avatars")

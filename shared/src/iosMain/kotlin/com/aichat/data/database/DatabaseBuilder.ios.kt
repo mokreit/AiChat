@@ -20,4 +20,5 @@ actual fun getDatabaseBuilder(): RoomDatabase.Builder<AppDatabase> {
     return androidx.room.Room.databaseBuilder<AppDatabase>(
         name = dbFilePath,
     ).setDriver(PackagedSQLiteDriver())
+        .fallbackToDestructiveMigration(true)
 }

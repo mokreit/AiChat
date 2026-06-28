@@ -1,8 +1,8 @@
 {
   "formatVersion": 1,
   "database": {
-    "version": 7,
-    "identityHash": "45f48a14d3b9380365d12897fc26fdb1",
+    "version": 9,
+    "identityHash": "50f3235bf1e03ac9792d6bcf765201db",
     "entities": [
       {
         "tableName": "characters",
@@ -590,7 +590,7 @@
       },
       {
         "tableName": "comfyui_config",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `serverUrl` TEXT NOT NULL, `workflowJson` TEXT NOT NULL, `positiveSuffix` TEXT NOT NULL, `negativePrompt` TEXT NOT NULL, `steps` INTEGER NOT NULL, `cfg` REAL NOT NULL, `width` INTEGER NOT NULL, `height` INTEGER NOT NULL, `samplerName` TEXT NOT NULL, `scheduler` TEXT NOT NULL, `checkpoint` TEXT NOT NULL, `loraName` TEXT NOT NULL, `loraStrength` REAL NOT NULL, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `serverUrl` TEXT NOT NULL, `workflowJson` TEXT NOT NULL, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -609,72 +609,6 @@
             "columnName": "workflowJson",
             "affinity": "TEXT",
             "notNull": true
-          },
-          {
-            "fieldPath": "positiveSuffix",
-            "columnName": "positiveSuffix",
-            "affinity": "TEXT",
-            "notNull": true
-          },
-          {
-            "fieldPath": "negativePrompt",
-            "columnName": "negativePrompt",
-            "affinity": "TEXT",
-            "notNull": true
-          },
-          {
-            "fieldPath": "steps",
-            "columnName": "steps",
-            "affinity": "INTEGER",
-            "notNull": true
-          },
-          {
-            "fieldPath": "cfg",
-            "columnName": "cfg",
-            "affinity": "REAL",
-            "notNull": true
-          },
-          {
-            "fieldPath": "width",
-            "columnName": "width",
-            "affinity": "INTEGER",
-            "notNull": true
-          },
-          {
-            "fieldPath": "height",
-            "columnName": "height",
-            "affinity": "INTEGER",
-            "notNull": true
-          },
-          {
-            "fieldPath": "samplerName",
-            "columnName": "samplerName",
-            "affinity": "TEXT",
-            "notNull": true
-          },
-          {
-            "fieldPath": "scheduler",
-            "columnName": "scheduler",
-            "affinity": "TEXT",
-            "notNull": true
-          },
-          {
-            "fieldPath": "checkpoint",
-            "columnName": "checkpoint",
-            "affinity": "TEXT",
-            "notNull": true
-          },
-          {
-            "fieldPath": "loraName",
-            "columnName": "loraName",
-            "affinity": "TEXT",
-            "notNull": true
-          },
-          {
-            "fieldPath": "loraStrength",
-            "columnName": "loraStrength",
-            "affinity": "REAL",
-            "notNull": true
           }
         ],
         "primaryKey": {
@@ -687,7 +621,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '45f48a14d3b9380365d12897fc26fdb1')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '50f3235bf1e03ac9792d6bcf765201db')"
     ]
   }
 }

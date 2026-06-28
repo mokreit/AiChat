@@ -9,3 +9,6 @@ expect class FilePicker() {
 expect class FileSaver() {
     suspend fun saveTextFile(defaultName: String, content: String): Boolean
 }
+
+/** Platform-specific JSON file picker, returns file content or null */
+expect suspend fun pickJsonFile(): String?
