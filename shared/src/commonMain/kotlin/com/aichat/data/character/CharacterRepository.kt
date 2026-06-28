@@ -9,6 +9,8 @@ class CharacterRepository(private val characterDao: CharacterDao) {
 
     suspend fun getCharacterById(id: String): CharacterEntity? = characterDao.getById(id)
 
+    fun observeCharacterById(id: String): Flow<CharacterEntity?> = characterDao.observeById(id)
+
     suspend fun insertCharacter(character: CharacterEntity) = characterDao.insert(character)
 
     suspend fun updateCharacter(character: CharacterEntity) = characterDao.update(character)

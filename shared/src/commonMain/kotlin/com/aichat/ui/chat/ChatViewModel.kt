@@ -87,30 +87,36 @@ class ChatViewModel(
         resolveSessionAndLoadMessages()
     }
 
-    private fun loadCharacterInfo() {
-        viewModelScope.launch {
-            val char = characterRepository.getCharacterById(characterId)
-            if (char != null) {
-                val prompt = buildSystemPrompt(char)
-                _uiState.value = _uiState.value.copy(
-                    characterName = char.name,
-                    characterAppearance = char.appearance,
-                    characterFirstMessage = char.firstMessage,
-                    systemPrompt = prompt,
-                    modelConfigId = char.modelConfigId,
-                    imageModelConfigId = char.imageModelConfigId,
-                    ttsProviderId = char.ttsProviderId,
-                    voiceId = char.voiceId,
-                    voiceApiEndpoint = char.voiceApiEndpoint,
-                    voiceApiKey = char.voiceApiKey,
-                    voiceModel = char.voiceModel,
-                    voiceDesignPrompt = char.voiceDesignPrompt,
-                )
-            } else {
-                _uiState.value = _uiState.value.copy(characterName = "Chat")
+    private var reloadJob: Job? = null
+
+    fun reloadCharacter() {
+        reloadJob?.cancel()
+        reloadJob = viewModelScope.launch {
+            characterRepository.observeCharacterById(characterId).collect { char ->
+                if (char != null) {
+                    val prompt = buildSystemPrompt(char)
+                    _uiState.value = _uiState.value.copy(
+                        characterName = char.name,
+                        characterAppearance = char.appearance,
+                        characterFirstMessage = char.firstMessage,
+                        systemPrompt = prompt,
+                        modelConfigId = char.modelConfigId,
+                        imageModelConfigId = char.imageModelConfigId,
+                        ttsProviderId = char.ttsProviderId,
+                        voiceId = char.voiceId,
+                        voiceApiEndpoint = char.voiceApiEndpoint,
+                        voiceApiKey = char.voiceApiKey,
+                        voiceModel = char.voiceModel,
+                        voiceDesignPrompt = char.voiceDesignPrompt,
+                    )
+                } else {
+                    _uiState.value = _uiState.value.copy(characterName = "Chat")
+                }
             }
         }
     }
+
+    private fun loadCharacterInfo() = reloadCharacter()
 
     private fun buildSystemPrompt(char: com.aichat.data.database.entity.CharacterEntity): String {
         val parts = mutableListOf<String>()

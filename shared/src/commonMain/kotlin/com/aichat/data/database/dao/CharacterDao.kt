@@ -17,6 +17,9 @@ interface CharacterDao {
     @Query("SELECT * FROM characters WHERE id = :id")
     suspend fun getById(id: String): CharacterEntity?
 
+    @Query("SELECT * FROM characters WHERE id = :id")
+    fun observeById(id: String): Flow<CharacterEntity?>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(character: CharacterEntity)
 
